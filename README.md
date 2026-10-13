@@ -10,6 +10,11 @@ python clean.py --clipboard                     # real data: clipboard on the wa
 ```
 Output is one long table: concept, time, value, unit, status (measured / censored / absent), bound, gap reason, result status, source, specimen. Real data stays in memory: agents get counts, units and reject reasons only, and nothing is written to disk. Ambiguous dates, missing units, unmapped or doubly mapped labels and unclear amended results are rejected, never guessed.
 
+## Agent environment
+`server.py` is a local MCP tool server (stdio) over `env.py`. An episode is one session; actions are `clean`, `rejects`, `render`; every observation validates against `schemas/*.json`, and every refusal carries a stable code (`env.ERRORS`). Handles live in memory and die with the session. `clean` is deterministic; the render ID is random and excluded. The as-at clock is settable on synthetic data only. Real-data `render` is display-only on the ward machine and returns nothing.
+
+Evaluation: `python evals/run.py` (machine tier, runs in CI) and `evals/READER_TEST.md` (people tier, run when look or wording changes).
+
 ## Render
 Paste a raw flowsheet table in, get a figure gallery out. Figures follow Lancet/NEJM conventions; legends are stored separately, like a paper.
 

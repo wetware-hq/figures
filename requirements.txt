@@ -2,3 +2,5 @@ polars>=1.0
 matplotlib>=3.8
 pillow>=10
 pytest>=8
+mcp>=2
+jsonschema>=4

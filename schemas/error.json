@@ -1,0 +1,2 @@
+{"type":"object","required":["ok","error","message"],"additionalProperties":false,
+ "properties":{"ok":{"const":false},"error":{"type":"string","pattern":"^[A-Z_]+$"},"message":{"type":"string"}}}

@@ -1,0 +1,6 @@
+{
+ "text": "patient\tlabel\ttime\tresult\tunit\tstatus\tsource\nSYNTH-001\tCRP\t2026-10-01 08:00\t1\tmg/L\tfinal\tlab\nSYNTH-002\tCRP\t2026-10-02 08:00\t1\tmg/L\tfinal\tlab",
+ "expect": {
+  "error": "MULTIPLE_PATIENTS"
+ }
+}

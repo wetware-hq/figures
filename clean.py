@@ -28,7 +28,13 @@ COMMENTS = {"haemolysed": "haemolysed", "hemolysed": "haemolysed", "hemolyzed": 
 NUM = r"[-+]?\d+(?:\.\d+)?"
 
 class Refused(SystemExit):
-    pass
+    """A refusal with a stable machine code; the message is for people."""
+    def __init__(self, code, message):
+        super().__init__(message); self.code, self.message = code, message
+    def __str__(self):
+        return self.message
+
+MAX_SERIES = 50
 
 TRIPWIRE = ("Refused: this looks like real patient data. It has already been copied into this chat, "
             "so treat it as a privacy incident. Don't paste it again or anywhere else. Report it to your "
@@ -60,7 +66,7 @@ class Result:
 def split(text):
     lines = [l for l in text.splitlines() if l.strip()]
     if not lines:
-        raise Refused("Refused: empty input.")
+        raise Refused("EMPTY_INPUT", "Refused: empty input.")
     sample = "\n".join(lines[:20])
     for d in ["\t", "|", ","]:
         if all(d in l for l in lines[:5]):
@@ -125,13 +131,13 @@ def clean(text, synthetic_only=True):
         return clean(_melt(head, body, h), synthetic_only)
     missing = [c for c in ("local_label", "t", "value") if c not in h]
     if missing:
-        raise Refused(f"Refused: no column recognised for {', '.join(missing)}.")
+        raise Refused("NO_REQUIRED_COLUMN", f"Refused: no column recognised for {', '.join(missing)}.")
     pats = {r[h["patient"]].strip() for r in body if "patient" in h and len(r) > h["patient"] and r[h["patient"]].strip()}
     synthetic = bool(pats) and all(SYNTH.match(p) for p in pats)
     if synthetic_only and not synthetic:
-        raise Refused(TRIPWIRE)
+        raise Refused("NOT_PROVABLY_SYNTHETIC", TRIPWIRE)
     if len(pats) > 1:
-        raise Refused("Refused: this paste contains more than one patient.")
+        raise Refused("MULTIPLE_PATIENTS", "Refused: this paste contains more than one patient.")
     rejects, rows = [], []
     get = lambda r, k: r[h[k]].strip() if k in h and h[k] < len(r) else ""
     lab2 = MAP.group_by("local_label").len()
@@ -164,6 +170,8 @@ def clean(text, synthetic_only=True):
                          gap_reason=extra if status == "absent" else None,
                          result_status=get(r, "status").lower() or None,
                          device=get(r, "device") or None, specimen=get(r, "specimen") or None))
+    if len({(r["concept_id"], r["unit"], r["device"], r["specimen"]) for r in rows}) > MAX_SERIES:
+        raise Refused("TOO_MANY_SERIES", f"Refused: more than {MAX_SERIES} series in one paste.")
     rows, rejects, order = _order(rows, rejects)
     rows, rejects = _amended(rows, rejects)
     df = pl.DataFrame(rows, schema={"line": pl.Int64, "local_label": pl.Utf8, "concept_id": pl.Utf8, "t": pl.Datetime,
@@ -197,9 +205,9 @@ def _order(rows, rejects):
         if all(d): dirs.add("oldest-first")
         elif not any(d): dirs.add("newest-first")
         else:
-            raise Refused(f"Refused: time goes forwards then backwards within {c}; this may be two charts stitched together.")
+            raise Refused("INTERLEAVED_TIME", f"Refused: time goes forwards then backwards within {c}; this may be two charts stitched together.")
     if len(dirs) > 1:
-        raise Refused("Refused: series in this paste run in different time orders; this may be two copies stitched together.")
+        raise Refused("MIXED_TIME_ORDER", "Refused: series in this paste run in different time orders; this may be two copies stitched together.")
     return rows, rejects, (dirs.pop() if dirs else "oldest-first")
 
 def _amended(rows, rejects):
@@ -229,11 +237,11 @@ def from_clipboard():
             return clean(subprocess.run(cmd, capture_output=True, text=True, check=True).stdout, synthetic_only=False)
         except (FileNotFoundError, subprocess.CalledProcessError):
             pass
-    raise Refused("Refused: no clipboard reader available on this machine.")
+    raise Refused("NO_CLIPBOARD", "Refused: no clipboard reader available on this machine.")
 
 def to_parquet(res, path):
     if not res.synthetic:
-        raise Refused("Refused: real data is never written to disk.")
+        raise Refused("REAL_DATA_NOT_WRITTEN", "Refused: real data is never written to disk.")
     res.rows.write_parquet(path)
 
 if __name__ == "__main__":
@@ -242,5 +250,5 @@ if __name__ == "__main__":
         res = from_clipboard() if "--clipboard" in a else from_file(a[a.index("--file") + 1]) if "--file" in a \
             else clean(sys.stdin.read())
     except Refused as e:
-        print(e, file=sys.stderr); sys.exit(2)
+        print(json.dumps({"error": e.code, "message": e.message}), file=sys.stderr); sys.exit(2)
     print(json.dumps(res.summary(), default=str, indent=1))

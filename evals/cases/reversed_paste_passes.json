@@ -1,0 +1,7 @@
+{
+ "text": "patient\tlabel\ttime\tresult\tunit\tstatus\tsource\nSYNTH-001\tCRP\t2026-10-03 08:00\t60\tmg/L\tfinal\tlab\nSYNTH-001\tCRP\t2026-10-02 08:00\t90\tmg/L\tfinal\tlab",
+ "expect": {
+  "ok": true,
+  "n": 2
+ }
+}

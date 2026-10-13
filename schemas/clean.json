@@ -1,0 +1,8 @@
+{"type":"object","required":["ok","handle","synthetic","identity","rejects","series"],"additionalProperties":false,
+ "properties":{"ok":{"const":true},"handle":{"type":"string"},"synthetic":{"type":"boolean"},
+  "identity":{"enum":["verified","not verified"]},
+  "rejects":{"type":"object","additionalProperties":{"type":"integer"}},
+  "series":{"type":"array","items":{"type":"object","required":["concept","unit","n"],"additionalProperties":false,
+    "properties":{"concept":{"type":"string"},"unit":{"type":"string"},"n":{"type":"integer"}}}},
+  "rows":{"type":"array","description":"synthetic data only"}},
+ "if":{"properties":{"synthetic":{"const":false}}},"then":{"not":{"required":["rows"]}}}
