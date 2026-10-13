@@ -2,7 +2,7 @@
 Usage:  pbpaste | python figures.py  (or: python figures.py export.csv)  -> gallery.html
 Rules: no interpolation; line breaks at every absence and at any gap > 1.5x the series' usual interval;
 tick strip shows when measurements happened; unmapped rows shown on the chart; no points CSV (Class B)."""
-import sys, io, base64, html, subprocess
+import sys, io, base64, html, subprocess, secrets, re
 from pathlib import Path
 import polars as pl, matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt, matplotlib.dates
@@ -159,13 +159,19 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
         fig, runs, meas = draw(s, concept, unit, patient, nu, ver, timedelta(hours=limit_h), mode)
         checks.append((s, runs, fig))
         n = len(cards) + 1
-        for ext in ("png", "svg", "pdf"):           # image files carry no legend text
-            fig.savefig(outdir / f"figure_{n}.{ext}")
+        rid = secrets.token_hex(2)                   # random per draw; never derived from the data (Class B)
+        withheld = row.row(0, named=True).get("status") != "SIGNED"
+        foot = " · ".join(x for x in ["Synthetic data" if str(patient).startswith("SYNTH") else None, "One patient",
+                                       "Read with the bedside", "Interpretation withheld" if withheld else None,
+                                       f"Fig {n}, render {rid}"] if x)   # capped footer: changes go to BIO Director
+        fig.text(0.99, 0.005, foot, ha="right", va="bottom", fontsize=5.5, color="0.45")
+        for ext in ("png", "svg", "pdf"):           # image carries only the capped footer, no legend
+            fig.savefig(outdir / f"figure_{n}.{ext}", metadata={"Description" if ext == "png" else "Title": f"render {rid}"})
         plt.close(fig)
         leg = legend_text(concept, unit, s, runs, nu, ver, limit_h, row.row(0, named=True))
-        legends.append(f"**Figure {n}.** " + html.unescape(leg.replace("<br>", " ").replace("<b>", "").replace("</b>", "")
+        legends.append(f"**Figure {n}** (render {rid})**.** " + html.unescape(leg.replace("<br>", " ").replace("<b>", "").replace("</b>", "")
                        .replace("<i>", "*").replace("</i>", "*")))
-        cards.append(f"<figure><img src='figure_{n}.png'><figcaption><b>Figure {n}.</b> {leg}</figcaption></figure>")
+        cards.append(f"<figure><img src='figure_{n}.png'><figcaption><b>Figure {n}</b> (render {rid}). {leg}</figcaption></figure>")
     page = ("<!doctype html><meta charset=utf-8><title>figures</title><style>body{font:14px sans-serif;max-width:760px;"
             "margin:2em auto}figure{margin:0 0 3em}img{width:100%}figcaption{font-size:13px;line-height:1.4}</style>"
             f"<p>{len(cards)} figures. SYNTHETIC DATA ONLY. Real patient trajectories are shown on screen or printed, never saved as this file.</p>"
@@ -173,7 +179,18 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
     (outdir / "legends.md").write_text("# Figure legends\n\nSYNTHETIC DATA ONLY.\n\n" + "\n\n".join(legends) + "\n")
     (outdir / "index.html").write_text(page); return str(outdir), checks
 
+def verify(outdir):
+    """Refuse a gallery whose legend entries and images don't share a render ID."""
+    from PIL import Image
+    outdir = Path(outdir); want = dict(re.findall(r"\*\*Figure (\d+)\*\* \(render ([0-9a-f]+)\)", (outdir / "legends.md").read_text()))
+    for n, rid in want.items():
+        got = Image.open(outdir / f"figure_{n}.png").info.get("Description", "")
+        if got != f"render {rid}":
+            raise SystemExit(f"REFUSED: Figure {n} legend is render {rid} but image is '{got}'. Re-render both.")
+    return True
+
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--verify"]: print(verify(sys.argv[2])); sys.exit()
     args = [a for a in sys.argv[1:] if not a.startswith("--as-at=")]
     as_at = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--as-at=")), None)
     text = Path(args[0]).read_text() if args else sys.stdin.read()

@@ -44,3 +44,11 @@ def test_png_has_no_legend_text():
     assert Path("/tmp/gl/figure_1.png").exists() and "Read with the bedside" in Path("/tmp/gl/legends.md").read_text()
     svg = Path("/tmp/gl/figure_1.svg").read_text()
     assert "Read with the bedside" not in svg and "clinical team" not in svg
+
+def test_mismatched_pair_refused():
+    import pytest, shutil
+    from figures import verify
+    build(FIX, "/tmp/v1.html", as_at="2026-10-16T08:00:00"); assert verify("/tmp/v1")
+    build(FIX, "/tmp/v2.html", as_at="2026-10-16T08:00:00")
+    shutil.copy("/tmp/v2/figure_1.png", "/tmp/v1/figure_1.png")   # stale legend, new image
+    with pytest.raises(SystemExit, match="REFUSED"): verify("/tmp/v1")
