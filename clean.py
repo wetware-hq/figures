@@ -23,6 +23,7 @@ ALIASES = {
     "gap_reason": ["gap_reason", "gap reason"],
     "as_at": ["as_at", "as at"],
 }
+NOT_DONE_WORDS = {"not done", "missed", "not collected"}
 ABSENT_STATUS = {"absent", "missed", "not done", "not collected"}
 COMMENTS = {"haemolysed": "haemolysed", "hemolysed": "haemolysed", "hemolyzed": "haemolysed",
             "insufficient": "insufficient sample", "cancelled": "cancelled", "canceled": "cancelled",
@@ -149,12 +150,16 @@ def strict_header(head, wide=False):
             seen[canon] = j
 
 def swapped_columns(h, body):
-    """Catch time and value columns swapped: the time column holds a number while the value column holds a time."""
+    """Catch swapped columns, naming row and column: time and value swapped (a number in the time column, a time in
+    the value column), or value and unit swapped (no digit in the value column, a plain number in the unit column)."""
+    cell = lambda r, k: r[h[k]].strip() if k in h and h[k] < len(r) else ""
     for n, r in enumerate(body, 1):
-        tc = r[h["t"]].strip() if h["t"] < len(r) else ""
-        vc = r[h["value"]].strip() if h["value"] < len(r) else ""
+        tc, vc, uc = cell(r, "t"), cell(r, "value"), cell(r, "unit")
         if parse_time(tc)[1] and parse_time(vc)[0] is not None:
             raise layout_refused(n, h["t"] + 1)
+        if "unit" in h and vc and not re.search(r"\d", vc) and vc.lower() not in NOT_DONE_WORDS \
+                and re.fullmatch(r"[<>]?=?\s*" + NUM, uc):
+            raise layout_refused(n, h["value"] + 1)
 
 def clean(text, synthetic_only=True, _melted=False):
     lines = [l for l in text.splitlines() if l.strip()]
@@ -191,7 +196,8 @@ def clean(text, synthetic_only=True, _melted=False):
         t, why = parse_time(get(r, "t"))
         if why:
             rejects.append((i, "time", why)); no_time += 1; continue
-        if not get(r, "value") and get(r, "status").lower() in ABSENT_STATUS:    # a recorded absence
+        not_done = get(r, "value").strip().lower() in NOT_DONE_WORDS     # 'not done' written in the value column
+        if (not get(r, "value") and get(r, "status").lower() in ABSENT_STATUS) or not_done:   # a recorded absence
             val, status, extra = None, "absent", get(r, "gap_reason") or "recorded absence"
         else:
             val, status, extra = parse_value(get(r, "value"))
@@ -210,7 +216,7 @@ def clean(text, synthetic_only=True, _melted=False):
         rows.append(dict(line=i, local_label=label, concept_id=conc, t=t, value=val, unit=unit,
                          status=status, bound=extra if status == "censored" else None,
                          gap_reason=extra if status == "absent" else None,
-                         result_status=get(r, "status").lower() or None,
+                         result_status=(get(r, "value").strip().lower() if not_done else get(r, "status").lower()) or None,
                          device=get(r, "device") or None, specimen=get(r, "specimen") or None))
     if len({(r["concept_id"], r["unit"], r["device"], r["specimen"]) for r in rows}) > MAX_SERIES:
         raise Refused("TOO_MANY_SERIES", f"Refused: more than {MAX_SERIES} series in one paste.")

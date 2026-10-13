@@ -251,3 +251,21 @@ def test_swapped_time_and_value_columns_refused(tmp_path, sep):
 def test_semicolon_refusal_names_row(tmp_path):
     r = _run(tmp_path, "patient;test;time;result\nSYNTH-8108;CRP;1937-10-01 08:00;180\n")
     assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported (row 1). Use commas or tabs."
+
+
+# ---------- round 8 ----------
+def test_value_and_unit_swapped_refused_with_row_and_column(tmp_path):
+    r = _run(tmp_path, "patient,local_label,t,value,unit\nSYNTH-8201,CRP,1937-01-05T06:00:00,mg/L,54\n"
+                       "SYNTH-8201,CRP,1937-01-06T06:00:00,mg/L,38\n")
+    assert r.returncode == 2
+    assert r.stderr.splitlines()[0] == "Refused: row 1, column 4 doesn't match the expected layout."
+    assert "Refused/LAYOUT" in r.stderr and "SYNTH-8201" not in r.stderr
+
+
+def test_not_done_in_value_column_is_cross_not_gap(tmp_path):
+    r = _run(tmp_path, "patient,local_label,t,value,unit\nSYNTH-8202,CRP,1937-05-02T08:00:00,22,mg/L\n"
+                       "SYNTH-8202,CRP,1937-05-03T08:00:00,not done,mg/L\nSYNTH-8202,CRP,1937-05-04T08:00:00,19,mg/L\n")
+    assert r.returncode == 0, r.stderr
+    leg = (tmp_path / "gallery" / "legends.md").read_text()
+    assert "✕ Not done: no test was done at this time." in leg and "couldn't be read" not in leg
+    assert "marked as a gap" not in leg and "marked as gaps" not in leg
