@@ -1,5 +1,16 @@
 # figures
 
+A data clean room for EMR flowsheets: messy table-like pastes in, clean structured time-series data out, ready for graphing and parsing. Precisely, **zero-retention local processing**. For patients: *nothing leaves and nothing is kept.*
+
+## Clean
+```
+python clean.py < fixtures/fixture_export.csv   # text path: provably synthetic only (SYNTH-### ids)
+python clean.py --file export.tsv               # real data: local file on the ward machine
+python clean.py --clipboard                     # real data: clipboard on the ward machine
+```
+Output is one long table: concept, time, value, unit, status (measured / censored / absent), bound, gap reason, result status, source, specimen. Real data stays in memory: agents get counts, units and reject reasons only, and nothing is written to disk. Ambiguous dates, missing units, unmapped or doubly mapped labels and unclear amended results are rejected, never guessed.
+
+## Render
 Paste a raw flowsheet table in, get a figure gallery out. Figures follow Lancet/NEJM conventions; legends are stored separately, like a paper.
 
 ```

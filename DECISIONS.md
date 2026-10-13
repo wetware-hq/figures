@@ -40,3 +40,16 @@ Why `figures` behaves the way it does. Each rule names the test that enforces it
 
 ## Known gap
 `test_journal_and_test_copies` runs the journal build but asserts nothing, so the journal/test copy split is currently untested.
+
+## v0.2 cleaning (clean.py)
+- Real-data text never passes through an agent: the text path accepts only provably synthetic ids; real data enters by local file or clipboard. Refusal is a tripwire, not a control, and its message reports an incident. Test: `test_text_path_refuses_unprovable_with_incident_message`.
+- On real data agents see counts, units and reject reasons only. Test: `test_real_data_summary_has_no_values_or_times`.
+- Real data is never written to disk. Test: `test_real_data_never_written_to_disk` (output only; temp, cache and spool for render are still untested).
+- Censored values keep their bound. Test: `test_censored_keeps_bound`.
+- Lab comments become absences with a reason. Test: `test_lab_comment_becomes_absence_with_reason`.
+- Flags stripped; reference ranges never taken as results. Test: `test_flag_and_range_stripped_never_taken_as_result`.
+- Amended: keep the final; unclear, reject both. Same time on two sources is two series. Tests: `test_amended_keeps_final_unclear_rejects_both`, `test_same_time_two_sources_are_two_series_not_a_refusal`.
+- Ambiguous dates, missing units and ambiguous labels are rejected, not guessed. Test: `test_ambiguous_date_unit_and_label_rejected_not_guessed`.
+- Rejects name the field and reason, never the line. Test: `test_rejects_name_field_never_echo_line`.
+- Time order decided once per paste: reversed passes, interleaved and mixed refused. Tests: `test_reversed_paste_passes`, `test_interleaved_refused`, `test_mixed_order_across_series_refused`.
+- More than one patient id is refused; order checks never verify identity. Tests: `test_more_than_one_patient_refused`, `test_real_data_summary_has_no_values_or_times`.

@@ -158,7 +158,7 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
         n = len(cards) + 1
         rid = secrets.token_hex(2)                   # random per draw; never derived from the data (Class B)
         withheld = row.row(0, named=True).get("status") != "SIGNED"
-        foot = " · ".join(x for x in ["Synthetic data" if str(patient).startswith("SYNTH") else None, "One patient",
+        foot = " · ".join(x for x in ["Synthetic data" if str(patient).startswith("SYNTH") else None, "Single-patient chart, identity not verified",
                                        "Read with the bedside", "Interpretation withheld" if withheld else None,
                                        f"Fig {n}, render {rid}"] if x)   # capped footer: changes go to BIO Director
         fig.text(0.99, 0.005, foot, ha="right", va="bottom", fontsize=5.5, color="0.45")
