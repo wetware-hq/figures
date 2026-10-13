@@ -94,9 +94,10 @@ def synopsis(s, runs, limit_h):
            f"Rose from {v0:g} to {vl:g} ({ch:+.0f}%) between {t0:%d %b} and {tl:%d %b}." if ch > 10 else
            f"Little change overall ({v0:g} to {vl:g}, {ch:+.0f}%)."]
     i_min = min(range(len(pts)), key=lambda i: pts[i]["v"])
-    tail = pts[-4:]
+    body = pts[:-1] if len(runs[-1]) == 1 else pts
+    tail = body[-4:]
     if len(tail) >= 3 and (max(p["v"] for p in tail) - min(p["v"] for p in tail)) <= 0.1 * max(abs(tail[-1]["v"]), 1):
-        out.append(f"The last {len(tail)} results are within 10% of each other, a plateau rather than continued change.")
+        out.append(f"From {tail[0]['t']:%d %b} to {tail[-1]['t']:%d %b} it held between {min(p['v'] for p in tail):g} and {max(p['v'] for p in tail):g}, a plateau rather than a continued fall.")
     if 0 < i_min < len(pts) - 1 and pts[-1]["v"] > pts[i_min]["v"] * 1.2:
         out.append(f"The lowest value was {pts[i_min]['v']:g} on {pts[i_min]['t']:%d %b}, and later results are higher.")
     gap = (tl - pts[-2]["t"]).total_seconds() / 3600
