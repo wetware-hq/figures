@@ -83,7 +83,7 @@ def test_guard_bad_rows_mrn_header_no_echo(tmp_path):
     r = _run(tmp_path, paste)
     assert r.returncode == 2 and r.stdout == ""
     first, diag = r.stderr.strip().splitlines()
-    assert first == "Refused: row 2 doesn't match the expected layout."
+    assert first == "Refused: no rows in the expected layout were found. Nothing was saved."
     assert re.fullmatch(DIAG, diag)
     for tok in TOKS:
         assert tok not in r.stdout + r.stderr, tok
@@ -116,7 +116,7 @@ def test_other_separators_via_clean(tmp_path, sep):
 def test_guard_short_row(tmp_path):
     paste = ("MRN,local_label,t,value,unit\nSYNTH-7732,CRP,notatime,5,mg/L\nSYNTH-7732,CRP\n")
     r = _run(tmp_path, paste)
-    assert r.returncode != 0 and r.stderr.splitlines()[0] == "Refused: row 2 doesn't match the expected layout."
+    assert r.returncode != 0 and r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
     assert "SYNTH-7732" not in r.stderr and "MRN" not in r.stderr
 
 
@@ -277,3 +277,11 @@ def test_r10_rows_are_spreadsheet_lines_blank_lines_count(tmp_path):
                                       "SYNTH-8121,Synthwidget,1937-10-02 08:00,5,mg/L,final\n"
                                       "SYNTH-8121,CRP,1937-10-03 08:00,90,mg/L,final\n")
     assert "recognise (row 4)." in leg
+
+
+def test_r10_no_matching_rows_refusal_wording(tmp_path):
+    paste = HEAD6 + "SYNTH-8122,Synthwidget,1937-10-02 08:00,5,mg/L,final\nSYNTH-8122,Synthgadget,1937-10-03 08:00,6,mg/L,final\n"
+    r = _run(tmp_path, paste)
+    assert r.returncode == 2 and r.stdout == ""
+    assert r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
+    assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]

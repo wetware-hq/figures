@@ -268,7 +268,7 @@ LAYOUT_ANY = "Refused: no rows in the expected layout were found. Nothing was sa
 def bad_row(text, e=None):
     """First row (spreadsheet style: the file's own line number, header = row 1) that breaks the layout, using clean.py's reader; None if unknown.
     Never returns row text."""
-    if isinstance(e, NoRows): return e.row
+    if isinstance(e, NoRows): return None          # nothing usable: the 'no rows' refusal, never a row number
     try:
         table = cleaner.split(text)
         head, h = table[0], cleaner.header_map(table[0])
