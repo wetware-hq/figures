@@ -285,3 +285,18 @@ def test_r10_no_matching_rows_refusal_wording(tmp_path):
     assert r.returncode == 2 and r.stdout == ""
     assert r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
+
+
+@pytest.mark.parametrize("word", ["not done", "missed", "not collected"])
+@pytest.mark.parametrize("order", [("patient", "test", "time", "result", "unit"),
+                                   ("result", "unit", "time", "test", "patient"),
+                                   ("time", "patient", "unit", "result", "test")])
+def test_r10_not_done_never_a_gap_any_column_order(tmp_path, word, order):
+    rows = [dict(patient="SYNTH-8123", test="CRP", time=f"1937-10-0{d} 08:00", result=v, unit="mg/L")
+            for d, v in ((1, "180"), (2, word), (3, "90"))]
+    paste = "\t".join(order) + "\n" + "".join("\t".join(r[c] for c in order) + "\n" for r in rows)
+    r = _run(tmp_path, paste)
+    assert r.returncode == 0, r.stderr
+    leg = (tmp_path / "gallery" / "legends.md").read_text()
+    assert "0 gap recorded" in leg and "1 gap recorded" not in leg
+    assert "Not done" in leg

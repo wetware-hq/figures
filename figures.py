@@ -88,8 +88,12 @@ def segments(s, limit):
     if cur: runs.append(cur)
     return runs
 
-def absences(s):
-    a = s.filter(pl.col("status") != "measured").sort("t")["t"].to_list()
+def absences(s, not_done=True):
+    """Recorded absences. With not_done=False, 'not done', 'missed' and 'not collected' are left out: they are never gaps."""
+    keep = pl.col("status") != "measured"
+    if not not_done:
+        keep = keep & ~((pl.col("status") == "absent") & pl.col("result_status").fill_null("").is_in(list(NOT_DONE)))
+    a = s.filter(keep).sort("t")["t"].to_list()
     spans, start = [], None
     for i, t in enumerate(a):
         start = start or t
@@ -170,7 +174,7 @@ def synopsis(s, runs, row, unit):
     return line
 
 def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h, row):
-    rec = len(absences(s)); inferred = max(len(runs) - 1 - rec, 0)
+    rec = len(absences(s, not_done=False)); inferred = max(len(runs) - 1 - len(absences(s)), 0)
     e = html.escape
     return (f"<b>{e(synopsis(s, runs, row, unit))}</b><br>"
             f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), single patient not verified, {e(frequency(s))}, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
