@@ -1,28 +1,66 @@
-# AGENTS.md: figures
+---
+schema: wetware.agent.v1
+resource: figures
+version: 0.2.0
+capabilities: [clean, rejects, render]
+inputs:
+  paste: {type: text|file|clipboard, constraint: "text = synthetic only"}
+outputs:
+  series: {type: memory, schema: schemas/clean.json}
+  rejects: {type: list, schema: schemas/rejects.json}
+  gallery: {type: directory, schema: schemas/render.json, constraint: synthetic only}
+server: {transport: mcp-stdio, entrypoint: server.py}
+---
 
-Role: operate or modify a zero-retention cleaner and renderer for EMR flowsheet pastes. Research prototype; synthetic data only.
+# Agent contract
 
-## Invariants (never violate; each has a test, see DECISIONS.md)
-- Never pass real patient rows through your context. Text input = synthetic only (`SYNTH-` ids). Real data = `file`/`clipboard` on the local machine.
-- If a user pastes real rows into chat: stop, do not repeat or process them, and tell them to report a privacy incident.
-- Real data: observe counts, units and reject reasons only. Never request values, times or gap lengths.
-- Never write real data to disk. Never set `as_at` on real data.
-- Never guess: an ambiguous date, missing unit, unknown or duplicate label, or unclear amended result → reject.
-- No interpolation, resampling, downsampling or best-value baselines. Absence ≠ zero.
-- Patient id is used only for row-to-row comparison; never a series label; never echoed.
-- Figures: one plot, x and y axes only, no title; legend ≤2 lines, stored separately; interpretation withheld unless the `limits.csv` row is SIGNED.
-- Footer says "identity not verified" unless an identifier was present and every row matched it.
-- Render ID is random; never derive it from data.
+Normative rules for agents that operate or modify figures. Wording uses RFC 2119: **MUST**, **MUST NOT**, **SHOULD**. Not approved for real patient data.
 
-## Interface (server.py, MCP stdio)
-- `clean(text|file|clipboard, as_at?)` → `{ok, handle, synthetic, identity, series[], rejects{}, rows?}`
-- `rejects(handle)` → `{ok, rejects[{line, field, reason}]}`
-- `render(handle)` → `{ok, shown, files[]}`; real data → `REAL_RENDER_LOCAL_DISPLAY_ONLY`
-- Errors: `{ok:false, error, message}`. Branch on `error`; codes are listed in `env.ERRORS`. Handles are valid for the session only.
+## Data handling
+
+1. Real patient rows **MUST NOT** enter agent context. Text input **MUST** carry only `SYNTH-` identifiers. Real data **MUST** come from `file` or `clipboard` on the local machine.
+2. If a user pastes real rows into chat, the agent **MUST** stop, **MUST NOT** repeat or process them, and **MUST** tell the user to report a privacy incident.
+3. On real data, agents **MUST** observe only counts, units and reject reasons. They **MUST NOT** request values, times or gap lengths.
+4. Real data **MUST NOT** be written to disk. `as_at` **MUST NOT** be set on real data.
+5. The patient identifier is used only for row-to-row comparison. It **MUST NOT** label a series or appear in any output.
+
+## Interface
+
+```
+clean(text|file|clipboard, as_at?) → {ok, handle, synthetic, identity, series[], rejects{}, rows?}
+rejects(handle)                    → {ok, rejects[{line, field, reason}]}
+render(handle)                     → {ok, shown, files[]}
+error                              → {ok: false, error, message}
+```
+
+Agents **MUST** branch on `error` codes (`env.ERRORS`), not on message text. Handles are valid for one session.
+
+## Cleaning order
+
+1. Split columns (tab, pipe, comma, then two or more spaces); recognise headers; melt times across columns into rows.
+2. Refuse: `NOT_PROVABLY_SYNTHETIC`, `MULTIPLE_PATIENTS`, `NO_REQUIRED_COLUMN`, `EMPTY_INPUT`.
+3. For each row, reject: unmapped or doubly mapped label → ambiguous or impossible date → unreadable value → missing unit → no unit conversion.
+4. Values: comment → `absent` with reason; `<x`/`>x` → `censored` with bound; strip flags; never take a reference range as the result.
+5. Refuse: `TOO_MANY_SERIES` (>50), `INTERLEAVED_TIME`, `MIXED_TIME_ORDER`. A consistently newest-first paste is accepted.
+6. Amended results: keep the one marked final; if none or several, reject all of them.
+
+## Figures
+
+- One plot, x and y axes only, no title, house style `default.mplstyle`.
+- Legend: at most two lines, stored separately from the image, describing the test and not the patient. No direction words unless the `limits.csv` row is SIGNED.
+- No interpolation, resampling, downsampling or best-value baseline.
+- The footer **MUST** read "identity not verified" unless an identifier matched every row.
+- The render ID **MUST** be random and **MUST NOT** be derived from data.
 
 ## Changing code
-- Before commit: `pytest -q && python evals/run.py` must pass.
-- New rule → add a test + a DECISIONS.md line naming it. Rule without test = say so.
-- Changes to footer text, legend wording or figure look require BIO Director sign-off and a reader-test run (evals/READER_TEST.md).
-- Do not add stored data, storage engines, query endpoints or new output fields for real data without explicit approval.
-- Fixtures: synthetic only. Never commit real data.
+
+- `pytest -q && python evals/run.py` **MUST** pass before commit.
+- Every new rule **MUST** get a test and a `DECISIONS.md` line naming that test.
+- Changes to footer text, legend wording or chart look **MUST** have BIO Director sign-off and a reader-test run.
+- Fixtures **MUST** be synthetic.
+
+## Out of scope
+
+- Storage, warehouses, query endpoints, or combining pastes or patients
+- Hosted services or vendor APIs
+- Real-data file output and clinical advice
