@@ -236,8 +236,10 @@ def clean(text, synthetic_only=True, _melted=False, _rows_at=None):
                                     "value": pl.Float64, "unit": pl.Utf8, "status": pl.Utf8, "bound": pl.Utf8,
                                     "gap_reason": pl.Utf8, "result_status": pl.Utf8, "device": pl.Utf8,
                                     "specimen": pl.Utf8}).sort(["concept_id", "t"])
-    return Result(df, rejects, synthetic, identity_verified=len(pats) == 1, order=order,
-                  unreadable=unreadable, no_time=no_time)
+    res = Result(df, rejects, synthetic, identity_verified=len(pats) == 1, order=order,
+                 unreadable=unreadable, no_time=no_time)
+    res.patient = next(iter(pats)) if pats else None   # the paste's own id (never a hard-coded one)
+    return res
 
 def _melt(head, body, h, at=None):
     """Wide to long. Also returns, per melted line, the original paste's row number (header = row 1)."""

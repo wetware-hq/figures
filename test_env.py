@@ -23,3 +23,15 @@ def test_handles_die_with_session():
 
 def test_unknown_action_is_typed_error():
     assert Env().step("drop_table")["error"] == "BAD_ACTION"
+
+
+
+def test_r11f_render_uses_the_pastes_own_patient_id(tmp_path, monkeypatch):
+    import figures
+    seen = []
+    monkeypatch.setattr(figures, "build", lambda text, *a, **k: seen.append(text) or (str(tmp_path), []))
+    from env import Env
+    e = Env()
+    h = e.clean("patient\tlabel\tunit\t1937-10-01 08:00\t1937-10-02 08:00\nSYNTH-4242\tCRP\tmg/L\t180\t140")["handle"]
+    e.render(h, out=str(tmp_path / "g"))
+    assert "SYNTH-4242" in seen[0] and "SYNTH-001" not in seen[0]

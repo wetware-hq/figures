@@ -47,7 +47,7 @@ class Env:
         if not res.synthetic:
             return _err("REAL_RENDER_LOCAL_DISPLAY_ONLY", "Real data is drawn on the ward machine's screen only; nothing is returned or written.")
         import figures
-        pid = "SYNTH-001"
+        pid = res.patient                    # the paste's own synthetic id, not a hard-coded fixture id
         rows = ["patient,local_label,t,value,unit,device,derivation,status,gap_reason"]
         for r in res.rows.filter(res.rows["status"] != "censored").iter_rows(named=True):
             v = "" if r["value"] is None else r["value"]
