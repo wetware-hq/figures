@@ -144,7 +144,7 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
     try: ver = subprocess.run(["git", "-C", str(HERE), "log", "-1", "--format=%h", "--", "mapping.csv", "units.csv", "limits.csv"],
                               capture_output=True, text=True).stdout.strip() or "uncommitted"
     except Exception: ver = "uncommitted"
-    limits = pl.read_csv(HERE / "limits.csv")
+    limits = pl.read_csv(HERE / "limits.csv", comment_prefix="#")
     outdir = Path(out).with_suffix(""); outdir.mkdir(exist_ok=True)
     cards, checks, legends = [], [], []
     for (patient, concept), s in d.group_by(["patient", "concept_id"], maintain_order=True):

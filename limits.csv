@@ -1,3 +1,4 @@
+# Example limits only. Replace them with your local laboratory's values before use.
 concept_id,unit,gap_limit_h,gap_reason_note,rcv_rise_pct,rcv_fall_pct,rcv_source,expected_half_life_h,decay_source,governs,status,signed_off_by
 crp,mg/L,36,Daily blood in an acute admission; >36 h means a day was missed,,,PROVISIONAL: EFLM CVI + assumed CVA; needs local lab imprecision,19,"Plasma half-life ~19 h, independent of disease (Pepys & Hirschfield 2003)","decay (fall); rcv (plateau only, log-normal asymmetric)",DRAFT,
 sodium,mmol/L,12,Twice-daily panel when being actively corrected,,,PROVISIONAL: EFLM CVI + assumed CVA; needs local lab imprecision,,No decay model; interpret by RCV and absolute rate of change only,rcv,DRAFT,
