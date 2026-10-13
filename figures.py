@@ -84,41 +84,36 @@ def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward")
     fig.text(0, 0, f"Source: {patient}; mapping {mapping_ver}", fontsize=5.5)
     return fig, runs, meas
 
-def synopsis(s, runs, limit_h):
-    """Rule-based, reproducible interpretation of the trend. No model; every sentence traceable to numbers."""
-    pts = [p for r in runs for p in r]
-    if len(pts) < 3: return "Too few measurements to describe a trend."
-    v0, vl, t0, tl = pts[0]["v"], pts[-1]["v"], pts[0]["t"], pts[-1]["t"]
-    ch = (vl - v0) / v0 * 100 if v0 else 0
-    out = [f"Fell from {v0:g} to {vl:g} ({ch:+.0f}%) between {t0:%d %b} and {tl:%d %b}." if ch < -10 else
-           f"Rose from {v0:g} to {vl:g} ({ch:+.0f}%) between {t0:%d %b} and {tl:%d %b}." if ch > 10 else
-           f"Little change overall ({v0:g} to {vl:g}, {ch:+.0f}%)."]
-    i_min = min(range(len(pts)), key=lambda i: pts[i]["v"])
-    body = pts[:-1] if len(runs[-1]) == 1 else pts
-    tail = body[-4:]
-    if len(tail) >= 3 and (max(p["v"] for p in tail) - min(p["v"] for p in tail)) <= 0.1 * max(abs(tail[-1]["v"]), 1):
-        out.append(f"From {tail[0]['t']:%d %b} to {tail[-1]['t']:%d %b} it held between {min(p['v'] for p in tail):g} and {max(p['v'] for p in tail):g}, a plateau rather than a continued fall.")
-    if 0 < i_min < len(pts) - 1 and pts[-1]["v"] > pts[i_min]["v"] * 1.2:
-        out.append(f"The lowest value was {pts[i_min]['v']:g} on {pts[i_min]['t']:%d %b}, and later results are higher.")
-    gap = (tl - pts[-2]["t"]).total_seconds() / 3600
-    if gap > limit_h:
-        out.append(f"The latest value comes {gap:.0f} h after the one before it, so the trend between them is unobserved.")
-    return " ".join(out)
+MAX_LINE1 = 220
 
-def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h):
-    meas = s.filter(pl.col("status") == "measured")
+def synopsis(s, runs, row, unit):
+    """Line 1. Hand-back first; analyte only, never the patient. Withheld unless limits row is SIGNED."""
+    pts = [p for r in runs for p in r]
+    hand = "Read with the bedside."
+    if len(pts) < 2: return f"{hand} Too few results to describe."
+    v0, vl, t0, tl = pts[0]["v"], pts[-1]["v"], pts[0]["t"], pts[-1]["t"]
+    nums = f"{v0:g} to {vl:g} {unit} ({t0:%d %b} to {tl:%d %b})"
+    if row.get("status") != "SIGNED":
+        return f"{hand} Went from {nums}. Interpretation withheld until test limits are signed off."
+    # signed path: trend words only when the signed threshold allows them
+    hl = row.get("expected_half_life_h"); fall = row.get("rcv_fall_pct"); rise = row.get("rcv_rise_pct")
+    ch = (vl - v0) / v0 * 100 if v0 else 0
+    if hl and vl < v0: trend, kin = "Fell", f"at about the expected rate for {pts[0]['concept_id']}"
+    elif fall and ch <= -float(fall): trend, kin = "Fell", ""
+    elif rise and ch >= float(rise): trend, kin = "Rose", ""
+    else: trend, kin = "Changed", "within test noise"
+    alts = "possible reasons need the clinical picture"
+    for line in (f"{hand} {trend} {kin} from {nums}; {alts}.", f"{hand} {trend} {kin}; {alts}.", f"{hand} {trend}; {alts}."):
+        line = re.sub(" +", " ", line)
+        if len(line) <= MAX_LINE1: return line   # numbers go first, then kinetics; alternatives + hand-back never go
+    return line
+
+def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h, row):
     rec = len(absences(s)); inferred = max(len(runs) - 1 - rec, 0)
-    dev = ", ".join(sorted(set(f"{a} ({b})" for a, b in zip(meas["device"], meas["derivation"]))))
-    base = runs[0][0] if runs else None
     e = html.escape
-    return (f"<b>{e(synopsis(s, runs, limit_h))}</b><br>"
-            f"<i>What:</i> {e(concept)} ({e(unit)}) for one patient, {meas['t'].min():%d %b} to {meas['t'].max():%d %b}. "
-            f"One person's results, not evidence about anyone else.<br>"
-            f"<i>Baseline:</i> admission value {base['v']:g} {e(unit)} on {base['t']:%d %b}.<br>"
-            f"<i>Gaps:</i> {rec} recorded as not measured. The line also breaks after more than {limit_h:g} h without a result "
-            f"({inferred} such breaks); that is the tool being cautious, not a recorded fact.<br>"
-            f"<i>Not shown:</i> {n_unmapped} measurements, because their labels are not mapped yet.<br>"
-            f"<i>Source:</i> {e(dev)}; mapping {mapping_ver}; synopsis is rule-based and describes the numbers, it is not a diagnosis.")
+    return (f"<b>{e(synopsis(s, runs, row, unit))}</b><br>"
+            f"<i>For the clinical team:</i> one patient, admission baseline, {rec} gap recorded, {inferred} inferred "
+            f"(&gt;{limit_h:g} h), {n_unmapped} results unmapped, limits {e(row.get('status','?')).lower()}, mapping {mapping_ver}.")
 
 def png_b64(fig):
     b = io.BytesIO(); fig.savefig(b, format="png"); plt.close(fig); return base64.b64encode(b.getvalue()).decode()
@@ -133,13 +128,13 @@ def build(text, out="gallery.html", mode="ward"):
     for (patient, concept), s in d.group_by(["patient", "concept_id"], maintain_order=True):
         unit = s["map_unit"].drop_nulls()[0]
         nu = unmapped.filter(pl.col("patient") == patient).height + bad.filter(pl.col("patient") == patient).height
-        lim = limits.filter(pl.col("concept_id") == concept)["max_gap_hours"]
+        row = limits.filter(pl.col("concept_id") == concept); lim = row["gap_limit_h"]
         if lim.is_empty(): raise SystemExit(f"No signed-off gap limit for {concept} in limits.csv")
         limit_h = float(lim[0]); from datetime import timedelta
         fig, runs, meas = draw(s, concept, unit, patient, nu, ver, timedelta(hours=limit_h), mode)
         checks.append((s, runs, fig))
         cards.append(f"<figure><img src='data:image/png;base64,{png_b64(fig)}'><figcaption>"
-                     f"{legend_text(concept, unit, s, runs, nu, ver, limit_h)}</figcaption></figure>")
+                     f"{legend_text(concept, unit, s, runs, nu, ver, limit_h, row.row(0, named=True))}</figcaption></figure>")
     page = ("<!doctype html><meta charset=utf-8><title>figures</title><style>body{font:14px sans-serif;max-width:760px;"
             "margin:2em auto}figure{margin:0 0 3em}img{width:100%}figcaption{font-size:13px;line-height:1.4}</style>"
             f"<h1>Figures</h1><p>{len(cards)} figures. Single-patient charts: this file is the only copy; delete it when done.</p>"

@@ -1,3 +1,6 @@
-concept_id,max_gap_hours,reason
-crp,36,daily blood test; >36 h means a day was missed (BIO Physician starting value)
-lactate,12,twice-daily panel (BIO Physician starting value)
+concept_id,unit,gap_limit_h,gap_reason_note,rcv_rise_pct,rcv_fall_pct,rcv_source,expected_half_life_h,decay_source,governs,status,signed_off_by
+crp,mg/L,36,Daily blood in an acute admission; >36 h means a day was missed,,,PROVISIONAL: EFLM CVI + assumed CVA; needs local lab imprecision,19,"Plasma half-life ~19 h, independent of disease (Pepys & Hirschfield 2003)","decay (fall); rcv (plateau only, log-normal asymmetric)",DRAFT,
+sodium,mmol/L,12,Twice-daily panel when being actively corrected,,,PROVISIONAL: EFLM CVI + assumed CVA; needs local lab imprecision,,No decay model; interpret by RCV and absolute rate of change only,rcv,DRAFT,
+potassium,mmol/L,12,Twice-daily panel when being actively corrected,,,PROVISIONAL: EFLM CVI + assumed CVA; needs local lab imprecision,,No decay model,rcv,DRAFT,
+ward_obs,various,8,Routine 4-8 hourly observations; >8 h is outside standard charting,,,n/a,,Not an analyte; gap limit only,gap,DRAFT,
+drug_level_weekly,various,168,Weekly therapeutic monitoring,,,PENDING per drug,,Per drug; not set,rcv,DRAFT,
