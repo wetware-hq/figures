@@ -43,7 +43,7 @@ def test_png_has_no_legend_text():
     from pathlib import Path
     assert Path("/tmp/gl/figure_1.png").exists() and "Read with the bedside" in Path("/tmp/gl/legends.md").read_text()
     svg = Path("/tmp/gl/figure_1.svg").read_text()
-    assert "Read with the bedside" not in svg and "clinical team" not in svg
+    assert "clinical team" not in svg and "admission baseline" not in svg and "Read with the bedside" in svg  # only the capped footer
 
 def test_mismatched_pair_refused():
     import pytest, shutil
