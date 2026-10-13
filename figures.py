@@ -5,9 +5,10 @@ tick strip shows when measurements happened; unmapped rows shown on the chart; n
 import sys, io, base64, html, subprocess
 from pathlib import Path
 import polars as pl, matplotlib; matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt, matplotlib.dates
 HERE = Path(__file__).parent
 plt.style.use(HERE / "default.mplstyle")
+DISPLAY = dict(pl.read_csv(HERE / "concepts.csv").iter_rows())
 
 def read_table(text):
     sep = "\t" if text.count("\t") > text.count(",") else ","
@@ -48,40 +49,49 @@ def absences(s):
             spans.append((start, t)); start = None
     return spans
 
+from datetime import datetime
+DRAWN = datetime.now().replace(second=0, microsecond=0)
+
+def between(a, b):
+    """The one string for elapsed time between two results; used on the chart and in the legend."""
+    h = (b - a).total_seconds() / 3600
+    return f"{h/24:.0f} days ({h:.0f} h) between results" if h >= 48 else f"{h:.0f} h between results"
+
 def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward"):
-    fig, (ax, strip) = plt.subplots(2, 1, sharex=True, height_ratios=[6, 1], figsize=(4.21, 3.3))
+    """One axes, x = time, y = value. Nothing else."""
+    fig, ax = plt.subplots(figsize=(4.21, 2.9))
     runs = segments(s, limit)
     for r in runs:
         ax.plot([p["t"] for p in r], [p["v"] for p in r], marker="o", color="C0")
     last = runs[-1][-1] if runs else None
-    if last and len(runs[-1]) == 1:  # isolated latest point: hollow
+    if last and len(runs[-1]) == 1:
         ax.plot([last["t"]], [last["v"]], marker="o", mfc="white", color="C0", zorder=3)
-    base = runs[0][0]["v"] if runs else None
-    if base is not None:
-        ax.axhline(base, color="0.5", lw=0.8)
-        ax.text(0.01, base, f" baseline: admission value, {runs[0][0]['t']:%d %b}", transform=ax.get_yaxis_transform(),
-                fontsize=6, va="bottom")
-    for a, b in absences(s):
-        ax.axvspan(a, b, color="0.9", lw=0)
-        ax.text(a + (b - a) / 2, ax.get_ylim()[1] * 0.95, f"not measured,\n{(b - a).days + 1} days",
+    if runs:
+        b0 = runs[0][0]
+        ax.axhline(b0["v"], color="0.6", lw=0.8)
+        ax.text(0.01, b0["v"], f" admission value, {b0['t']:%d %b}", transform=ax.get_yaxis_transform(), fontsize=6, va="bottom")
+    pad = (limit or (runs[-1][-1]["t"] - runs[0][0]["t"])) * 0.08 if runs else None
+    for prev, nxt in zip(runs, runs[1:]):   # shade the whole span between results, small margin at each dot
+        a, b = prev[-1]["t"], nxt[0]["t"]
+        ax.axvspan(a + pad, b - pad, color="0.9", lw=0)
+        ax.text(a + (b - a) / 2, 0.97, between(a, b).replace(" between", "
+between"), transform=ax.get_xaxis_transform(),
                 ha="center", va="top", fontsize=6.5)
     if last:
-        ax.annotate(f"last measured\n{last['t']:%d %b %H:%M}", (last["t"], last["v"]), xytext=(0, 10),
-                    textcoords="offset points", ha="center", fontsize=6.5)
+        age = (DRAWN - last["t"]).total_seconds() / 3600
+        ax.annotate(f"last measured {last['t']:%d %b %H:%M}" + (f",
+{age:.0f} h before this chart was made" if age > 0 else ""),
+                    (last["t"], last["v"]), xytext=(-4, 8), textcoords="offset points", ha="right", fontsize=6.5)
+    name = DISPLAY.get(concept, concept)
+    ax.set_ylabel(f"{name} ({unit})"); ax.set_title(f"{name}, one patient")
+    ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d %b"))
     if n_unmapped:
-        fig.text(0.99, 0.01, f"{n_unmapped} measurements not shown (unmapped)",
-                ha="right", fontsize=6, color="C1")
-    meas = s.filter(pl.col("status") == "measured")["t"].to_list()
-    strip.vlines(meas, 0, 1, color="k", lw=0.8); strip.set_yticks([]); strip.set_ylim(0, 1)
-    strip.spines["left"].set_visible(False)
-    strip.set_ylabel("measured", rotation=0, ha="right", va="center", fontsize=6)
-    ax.set_ylabel(f"{concept} ({unit})"); ax.set_title(f"{concept}, one patient")
-    fig.autofmt_xdate()
-    if mode == "test":  # strip nothing that makes the chart work; only the explanatory title
-        ax.set_title("")
+        fig.text(0.99, 0.0, f"{n_unmapped} results not shown (unmapped)", ha="right", fontsize=6, color="C1")
+    if mode == "test": ax.set_title("")
     if mode == "journal":
         fig.text(0.5, 0.5, "NOT FOR CLINICAL USE", ha="center", va="center", fontsize=18, color="C1", alpha=0.35, rotation=20)
-    fig.text(0, 0, f"Source: {patient}; mapping {mapping_ver}", fontsize=5.5)
+    fig.text(0, 0, f"Source: {patient}; mapping {mapping_ver}; drawn {DRAWN:%d %b %H:%M}", fontsize=5.5)
+    meas = s.filter(pl.col("status") == "measured")["t"].to_list()
     return fig, runs, meas
 
 MAX_LINE1 = 220
@@ -94,14 +104,12 @@ def synopsis(s, runs, row, unit):
     v0, vl, t0, tl = pts[0]["v"], pts[-1]["v"], pts[0]["t"], pts[-1]["t"]
     nums = f"{v0:g} to {vl:g} {unit} ({t0:%d %b} to {tl:%d %b})"
     if row.get("status") != "SIGNED":
-        gap_h = (tl - pts[-2]["t"]).total_seconds() / 3600
-        un = sum((b - a).days + 1 for a, b in absences(s))
-        return (f"{hand} {v0:g} {unit} on {t0:%d %b}; latest {vl:g} {unit} on {tl:%d %b}, {gap_h:.0f} h after the previous result"
-                + (f", with {un} days unmeasured" if un else "") + ". Interpretation withheld until test limits are signed off.")
+        return (f"{hand} {v0:g} {unit} on {t0:%d %b}; latest {vl:g} {unit} on {tl:%d %b}, {between(pts[-2]['t'], tl)}."
+                " Interpretation withheld until test limits are signed off.")
     # signed path: trend words only when the signed threshold allows them
     hl = row.get("expected_half_life_h"); fall = row.get("rcv_fall_pct"); rise = row.get("rcv_rise_pct")
     ch = (vl - v0) / v0 * 100 if v0 else 0
-    if hl and vl < v0: trend, kin = "Fell", f"at about the expected rate for {pts[0]['concept_id']}"
+    if hl and vl < v0: trend, kin = "Fell", f"at about the expected rate for {DISPLAY.get(pts[0]['concept_id'], pts[0]['concept_id'])}"
     elif fall and ch <= -float(fall): trend, kin = "Fell", ""
     elif rise and ch >= float(rise): trend, kin = "Rose", ""
     else: trend, kin = "Changed", "within test noise"

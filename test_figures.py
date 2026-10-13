@@ -9,8 +9,8 @@ def test_rules():
     absent = s.filter(pl.col("status") != "measured")["t"].to_list()
     # 1 segments = measured runs split by absences
     assert len(runs) == 2 and len(fig.axes[0].get_lines()) >= 2
-    # 2 tick strip exists
-    assert len(fig.axes) == 2 and fig.axes[1].collections
+    # 2 one plot, no secondary axes
+    assert len(fig.axes) == 1  # single x/y axes only
     # 3 every measured row plotted, none dropped
     assert sum(len(r) for r in runs) == s.filter(pl.col("status") == "measured").height
     # 4 no plotted point inside an absence span
