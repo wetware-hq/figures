@@ -74,13 +74,11 @@ def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward")
     for prev, nxt in zip(runs, runs[1:]):   # shade the whole span between results, small margin at each dot
         a, b = prev[-1]["t"], nxt[0]["t"]
         ax.axvspan(a + pad, b - pad, color="0.9", lw=0)
-        ax.text(a + (b - a) / 2, 0.97, between(a, b).replace(" between", "
-between"), transform=ax.get_xaxis_transform(),
+        ax.text(a + (b - a) / 2, 0.97, between(a, b).replace(" between", "\nbetween"), transform=ax.get_xaxis_transform(),
                 ha="center", va="top", fontsize=6.5)
     if last:
         age = (DRAWN - last["t"]).total_seconds() / 3600
-        ax.annotate(f"last measured {last['t']:%d %b %H:%M}" + (f",
-{age:.0f} h before this chart was made" if age > 0 else ""),
+        ax.annotate(f"last measured {last['t']:%d %b %H:%M}" + (f",\n{age:.0f} h before this chart was made" if age > 0 else ""),
                     (last["t"], last["v"]), xytext=(-4, 8), textcoords="offset points", ha="right", fontsize=6.5)
     name = DISPLAY.get(concept, concept)
     ax.set_ylabel(f"{name} ({unit})"); ax.set_title(f"{name}, one patient")
