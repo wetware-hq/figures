@@ -140,7 +140,7 @@ def build(text, out="gallery.html", mode="ward"):
                      f"{legend_text(concept, unit, s, runs, nu, ver, limit_h, row.row(0, named=True))}</figcaption></figure>")
     page = ("<!doctype html><meta charset=utf-8><title>figures</title><style>body{font:14px sans-serif;max-width:760px;"
             "margin:2em auto}figure{margin:0 0 3em}img{width:100%}figcaption{font-size:13px;line-height:1.4}</style>"
-            f"<h1>Figures</h1><p>{len(cards)} figures. Single-patient charts: this file is the only copy; delete it when done.</p>"
+            f"<h1>Figures</h1><p>{len(cards)} figures. SYNTHETIC DATA ONLY. Real patient trajectories are shown on screen or printed, never saved as this file.</p>"
             + "".join(cards))
     Path(out).write_text(page); return out, checks
 
