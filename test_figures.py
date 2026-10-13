@@ -320,3 +320,20 @@ def test_r10_refusals_print_no_internal_diagnostics(tmp_path, paste):
     r = _run(tmp_path, paste)
     assert r.returncode == 2 and len(r.stderr.strip().splitlines()) == 1
     assert "Diagnostic" not in r.stderr and ".py" not in r.stderr and "Traceback" not in r.stderr
+
+
+def test_r10_limit_values_with_unmapped_style_units_chart(tmp_path):
+    # same structure as the refused heldout paste: unit before time, '<' and '>' results, eGFR and troponin
+    paste = ("patient,local_label,unit,t,value\n"
+             "SYNTH-8126,eGFR,mL/min/1.73m2,1937-04-01T08:00:00,>90\n"
+             "SYNTH-8126,eGFR,mL/min/1.73m2,1937-04-08T08:00:00,64\n"
+             "SYNTH-8126,Troponin,ng/L,1937-04-01T08:00:00,<5\n"
+             "SYNTH-8126,Troponin,ng/L,1937-04-01T14:00:00,14\n")
+    r = _run(tmp_path, paste)
+    assert r.returncode == 0, r.stderr
+    leg = (tmp_path / "gallery" / "legends.md").read_text()
+    assert leg.count("**Figure") == 2
+    assert "eGFR (mL/min/1.73m2), single patient not verified, 2 results" in leg
+    assert "Troponin (ng/L), single patient not verified, 2 results" in leg
+    assert "1 gap recorded" not in leg and "0 results unmapped" in leg
+    assert "(>90)" in leg and "(<5)" in leg

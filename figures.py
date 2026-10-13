@@ -90,7 +90,7 @@ def segments(s, limit):
 
 def absences(s, not_done=True):
     """Recorded absences. With not_done=False, 'not done', 'missed' and 'not collected' are left out: they are never gaps."""
-    keep = pl.col("status") != "measured"
+    keep = ~pl.col("status").is_in(["measured", "censored"])     # a value beyond the test's limit is a result, not a gap
     if not not_done:
         keep = keep & ~((pl.col("status") == "absent") & pl.col("result_status").fill_null("").is_in(list(NOT_DONE)))
     a = s.filter(keep).sort("t")["t"].to_list()
@@ -199,7 +199,7 @@ def marker_legend(s):
     return "".join(f"<br>{html.escape(x)}" for x in out)
 
 def frequency(s):
-    t = s.filter(pl.col("status") == "measured").sort("t")["t"]
+    t = s.filter(pl.col("status").is_in(["measured", "censored"])).sort("t")["t"]
     h = [x.total_seconds() / 3600 for x in t.diff().drop_nulls()]
     if len(h) < 4: return f"{len(t)} results"
     import statistics as st

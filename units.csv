@@ -2,3 +2,5 @@ from_unit,to_unit,factor
 mg/dL,mg/L,10
 mg/L,mg/L,1
 mmol/L,mmol/L,1
+mL/min/1.73m2,mL/min/1.73m2,1
+ng/L,ng/L,1

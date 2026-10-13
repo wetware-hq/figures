@@ -4,3 +4,5 @@ C-reactive protein,crp,mg/L
 CRP (ward 7 panel),crp,mg/dL
 Lactate,lactate,mmol/L
 Nurse wellbeing score,,
+eGFR,egfr,mL/min/1.73m2
+Troponin,troponin,ng/L
