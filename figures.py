@@ -11,6 +11,39 @@ HERE = Path(__file__).parent
 plt.style.use(HERE / "default.mplstyle")
 DISPLAY = dict(pl.read_csv(HERE / "concepts.csv").iter_rows())
 
+# ---------- synthetic-date safeguard ----------
+# Its own copy of the same logic letters uses (no cross-repo dependency); the same boundary tests run in both.
+SYNTH_FIRST, SYNTH_LAST = "1930-01-01", "1939-12-31"
+SCAN_ISO = re.compile(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)")
+SCAN_DMY = re.compile(r"(?<![\d.])(\d{1,2})[/.](\d{1,2})[/.](\d{2,4})(?![\d.])")
+DATE_REFUSED = ("Refused: row {n} of the paste has a date outside 1 Jan 1930 to 31 Dec 1939. Nothing was saved.\n"
+                "If this is real data, delete the paste and use synthetic data only.")
+
+class DateRefused(Exception):
+    def __init__(self, row):
+        super().__init__("date outside range"); self.row = row
+
+def date_in_range(y, mo, d):
+    """True only for a real calendar date from SYNTH_FIRST to SYNTH_LAST."""
+    import datetime as _dt
+    try: _dt.date(y, mo, d)
+    except ValueError: return False
+    return SYNTH_FIRST <= f"{y:04d}-{mo:02d}-{d:02d}" <= SYNTH_LAST
+
+def first_out_of_range_line(text):
+    """1-based row of the original paste (blank lines counted) with the first date outside the range; None if none."""
+    for n, line in enumerate(text.splitlines(), 1):
+        for m in SCAN_ISO.finditer(line):
+            if not date_in_range(*(int(x) for x in m.groups())): return n
+        for m in SCAN_DMY.finditer(line):
+            d, mo, y = (int(x) for x in m.groups())
+            if not date_in_range(y + 1900 if y < 100 else y, mo, d): return n
+    return None
+
+def check_dates(text):
+    n = first_out_of_range_line(text)
+    if n: raise DateRefused(n)
+
 class NoRows(Exception):
     """No usable rows after cleaning. Carries the first rejected data row number only."""
     def __init__(self, row=None):
@@ -233,6 +266,7 @@ def frequency(s):
 
 def build(text, out="gallery.html", mode="ward", as_at=None):
     NOTICES.clear()
+    check_dates(text)
     d, n_unmapped, patient, paste_as_at = load(text)
     if as_at is None: as_at = paste_as_at
     if as_at is not None:
@@ -331,8 +365,10 @@ def main(argv):
         if isinstance(e, SystemExit) and e.code in (0, None): return 0
         if not existed and out.exists():
             import shutil; shutil.rmtree(out, ignore_errors=True)
-        n = bad_row(text, e)
-        if isinstance(e, SemicolonPaste):
+        n = None if isinstance(e, DateRefused) else bad_row(text, e)
+        if isinstance(e, DateRefused):
+            msg = DATE_REFUSED.format(n=e.row)
+        elif isinstance(e, SemicolonPaste):
             msg = SEMICOLON_ROW.format(n=e.row) if e.row else SEMICOLON_REFUSED
         elif isinstance(e, cleaner.Refused) and e.code == "LAYOUT":
             msg = e.message                         # row and column only

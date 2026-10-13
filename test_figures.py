@@ -426,3 +426,35 @@ def test_r11f_no_trend_line_into_or_out_of_censored_marker():
             import matplotlib.dates as md
             xs = [md.num2date(x).replace(tzinfo=None) if not isinstance(x, dt.datetime) else x for x in xs]
             assert not (min(xs) <= ts[1] <= max(xs)), xs
+
+
+# ---------- synthetic-date safeguard: same boundary dates as letters ----------
+import figures as _F
+DATE_LINES = ("Refused: row {n} of the paste has a date outside 1 Jan 1930 to 31 Dec 1939. Nothing was saved.",
+              "If this is real data, delete the paste and use synthetic data only.")
+
+
+@pytest.mark.parametrize("d,ok", [("1929-12-31", False), ("1930-01-01", True), ("1939-12-31", True), ("1940-01-01", False)])
+def test_r11h_boundary_dates(d, ok):
+    assert (_F.first_out_of_range_line(f"SYNTH-1\n\nseen {d}") is None) == ok
+
+
+@pytest.mark.parametrize("d,ok", [("1929-12-31", False), ("1930-01-01", True), ("1939-12-31", True), ("1940-01-01", False)])
+def test_r11h_cli_refuses_out_of_range_row_exit_2(tmp_path, d, ok):
+    paste = ("patient,test,time,result,unit\n\n"
+             "SYNTH-7740,CRP,1937-10-01 08:00,180,mg/L\n"
+             f"SYNTH-7740,CRP,{d} 08:00,90,mg/L\n")
+    r = _run(tmp_path, paste)
+    if ok:
+        assert DATE_LINES[1] not in r.stderr
+    else:
+        assert r.returncode == 2
+        assert r.stderr.strip().splitlines() == [DATE_LINES[0].format(n=4), DATE_LINES[1]]
+        assert not (tmp_path / "gallery").exists() and not (tmp_path / "gallery.html").exists()
+        assert "SYNTH-7740" not in r.stderr and "CRP" not in r.stderr
+
+
+def test_r11h_row_counts_blank_lines_and_iso_with_time():
+    assert _F.first_out_of_range_line("h\n\n\n1937-01-01\n1941-02-03T08:00") == 5
+    assert _F.first_out_of_range_line("31/12/1939 01/01/1930 5.1 12.30") is None
+    assert _F.first_out_of_range_line("h\n1/1/1940") == 2
