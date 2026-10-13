@@ -458,3 +458,30 @@ def test_r11h_row_counts_blank_lines_and_iso_with_time():
     assert _F.first_out_of_range_line("h\n\n\n1937-01-01\n1941-02-03T08:00") == 5
     assert _F.first_out_of_range_line("31/12/1939 01/01/1930 5.1 12.30") is None
     assert _F.first_out_of_range_line("h\n1/1/1940") == 2
+
+
+# ---- round 11 ruling: dates with a time joined on, both directions, both forms (same cases as letters) ----
+TIMED = [("1937-02-03T08:00", True), ("1937-02-03 08:00", True), ("1941-02-03T08:00", False), ("1941-02-03 08:00", False)]
+
+
+@pytest.mark.parametrize("ts,ok", TIMED)
+def test_r11i_safeguard_dates_with_time_joined_on(ts, ok):
+    assert (_F.first_out_of_range_line(f"SYNTH-1\nseen {ts}") is None) == ok
+
+
+@pytest.mark.parametrize("ts,ok", TIMED)
+def test_r11i_cli_timestamp_row_draws_or_refuses(tmp_path, ts, ok):
+    paste = ("patient,test,time,result,unit\n"
+             "SYNTH-7750,CRP,1937-02-02T08:00,180,mg/L\n"
+             f"SYNTH-7750,CRP,{ts},90,mg/L\n")
+    r = _run(tmp_path, paste)
+    if ok:
+        assert r.returncode == 0, r.stderr
+        assert DATE_LINES[1] not in r.stderr
+        page = (tmp_path / "gallery" / "index.html").read_text()
+        assert "<svg" in page or "<img" in page, page[:500]
+        assert "couldn't be read" not in (tmp_path / "gallery" / "legends.md").read_text()   # both timed rows drawn
+    else:
+        assert r.returncode == 2
+        assert r.stderr.strip().splitlines() == [DATE_LINES[0].format(n=3), DATE_LINES[1]]
+        assert not (tmp_path / "gallery").exists() and not (tmp_path / "gallery.html").exists()
