@@ -10,6 +10,7 @@ outputs:
   rejects: {type: list, schema: schemas/rejects.json}
   gallery: {type: directory, schema: schemas/render.json, constraint: synthetic only}
 server: {transport: mcp-stdio, entrypoint: server.py}
+hosts: [{repo: wetware-hq/captaincook, command: /figures, data: synthetic only, status: pending 1937 check}]
 ---
 
 # Agent contract
@@ -34,6 +35,7 @@ error                              → {ok: false, error, message}
 ```
 
 Agents **MUST** branch on `error` codes (`env.ERRORS`), not on message text. Handles are valid for one session.
+Hosts on third-party chat (captaincook/Telegram) MUST call `clean` with `text` only, MUST NOT use `file`/`clipboard`, and MUST NOT store handles, counts or render files in any patient record.
 
 ## Cleaning order
 
