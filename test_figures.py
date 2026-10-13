@@ -4,7 +4,7 @@ from figures import build
 FIX = Path("/workspace/wetware/figures-fixture/fixture_export.csv").read_text()
 
 def test_rules():
-    _, checks = build(FIX, "/tmp/g.html")
+    _, checks = build(FIX, "/tmp/g.html", as_at="2026-10-16T08:00:00")
     s, runs, fig = next(c for c in checks if c[0]["concept_id"][0] == "crp")
     absent = s.filter(pl.col("status") != "measured")["t"].to_list()
     # 1 segments = measured runs split by absences
@@ -20,9 +20,20 @@ def test_rules():
 
 def test_inferred_break_not_recorded_gap():
     from figures import absences
-    _, checks = build(FIX, "/tmp/g.html")
+    _, checks = build(FIX, "/tmp/g.html", as_at="2026-10-16T08:00:00")
     s, runs, _ = checks[0]
     assert len(absences(s)) == 1  # only the recorded absence; inferred breaks never enter the data
 
 def test_journal_and_test_copies():
-    build(FIX, "/tmp/j.html", mode="journal"); build(FIX, "/tmp/t.html", mode="test")
+    build(FIX, "/tmp/j.html", mode="journal", as_at="2026-10-16T08:00:00")
+
+def test_future_dated_result_refused():
+    import pytest
+    with pytest.raises(SystemExit, match="REFUSED"):
+        build(FIX, "/tmp/f.html", as_at="2026-10-12T00:00:00")
+
+def test_no_title_and_anchored_age():
+    _, checks = build(FIX, "/tmp/g.html", as_at="2026-10-16T08:00:00")
+    ax = checks[0][2].axes[0]
+    assert ax.get_title() == ""
+    assert any("48 h before data as-at 16 Oct 08:00" in x.get_text() for x in ax.texts)

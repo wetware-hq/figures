@@ -51,6 +51,7 @@ def absences(s):
 
 from datetime import datetime
 DRAWN = datetime.now().replace(second=0, microsecond=0)
+ANCHOR = {"t": DRAWN, "label": "this chart was made"}  # replaced by data as-at when supplied
 
 def between(a, b):
     """The one string for elapsed time between two results; used on the chart and in the legend."""
@@ -77,8 +78,8 @@ def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward")
         ax.text(a + (b - a) / 2, 0.97, between(a, b).replace(" between", "\nbetween"), transform=ax.get_xaxis_transform(),
                 ha="center", va="top", fontsize=6.5)
     if last:
-        age = (DRAWN - last["t"]).total_seconds() / 3600
-        ax.annotate(f"last measured {last['t']:%d %b %H:%M}" + (f",\n{age:.0f} h before this chart was made" if age > 0 else ""),
+        age = (ANCHOR["t"] - last["t"]).total_seconds() / 3600
+        ax.annotate(f"last measured {last['t']:%d %b %H:%M},\n{age:.0f} h before {ANCHOR['label']}",
                     (last["t"], last["v"]), xytext=(4, 30), textcoords="offset points", ha="right", arrowprops=dict(arrowstyle="-", color="0.4", lw=0.6), fontsize=6.5)
     name = DISPLAY.get(concept, concept)
     ax.set_ylabel(f"{name} ({unit})")
@@ -117,14 +118,32 @@ def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h, row):
     rec = len(absences(s)); inferred = max(len(runs) - 1 - rec, 0)
     e = html.escape
     return (f"<b>{e(synopsis(s, runs, row, unit))}</b><br>"
-            f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), one patient, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
+            f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), one patient, {e(frequency(s))}, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
             f"(&gt;{limit_h:g} h), {n_unmapped} results unmapped, limits {e(row.get('status','?')).lower()}, mapping {mapping_ver}, drawn {DRAWN:%d %b %Y %H:%M}.")
 
 def png_b64(fig):
     b = io.BytesIO(); fig.savefig(b, format="png"); plt.close(fig); return base64.b64encode(b.getvalue()).decode()
 
-def build(text, out="gallery.html", mode="ward"):
-    d, unmapped, bad = prepare(read_table(text))
+def frequency(s):
+    t = s.filter(pl.col("status") == "measured").sort("t")["t"]
+    h = [x.total_seconds() / 3600 for x in t.diff().drop_nulls()]
+    if len(h) < 4: return f"{len(t)} results"
+    import statistics as st
+    k = len(h) // 2; a, b = st.median(h[:k]), st.median(h[k:])
+    if b >= 2 * a: return f"{len(t)} results, every ~{a:.0f} h then every ~{b:.0f} h from {t[k]:%d %b}"
+    return f"{len(t)} results, usually every ~{st.median(h):.0f} h"
+
+def build(text, out="gallery.html", mode="ward", as_at=None):
+    raw = read_table(text)
+    if as_at is None and "as_at" in raw.columns: as_at = raw["as_at"].drop_nulls().max()
+    if as_at is not None:
+        ANCHOR.update(t=datetime.fromisoformat(str(as_at)), label=f"data as-at {datetime.fromisoformat(str(as_at)):%d %b %H:%M}")
+    else:
+        ANCHOR.update(t=DRAWN, label="this chart was made")
+    d, unmapped, bad = prepare(raw)
+    future = d.filter((pl.col("status") == "measured") & (pl.col("t") > ANCHOR["t"]))
+    if future.height:
+        raise SystemExit(f"REFUSED: {future.height} result(s) dated after {ANCHOR['label']} (first {future['t'].min()}). Clock or data error.")
     try: ver = subprocess.run(["git", "-C", str(HERE), "log", "-1", "--format=%h", "--", "mapping.csv", "units.csv", "limits.csv"],
                               capture_output=True, text=True).stdout.strip() or "uncommitted"
     except Exception: ver = "uncommitted"
@@ -142,10 +161,12 @@ def build(text, out="gallery.html", mode="ward"):
                      f"{legend_text(concept, unit, s, runs, nu, ver, limit_h, row.row(0, named=True))}</figcaption></figure>")
     page = ("<!doctype html><meta charset=utf-8><title>figures</title><style>body{font:14px sans-serif;max-width:760px;"
             "margin:2em auto}figure{margin:0 0 3em}img{width:100%}figcaption{font-size:13px;line-height:1.4}</style>"
-            f"<h1>Figures</h1><p>{len(cards)} figures. SYNTHETIC DATA ONLY. Real patient trajectories are shown on screen or printed, never saved as this file.</p>"
+            f"<p>{len(cards)} figures. SYNTHETIC DATA ONLY. Real patient trajectories are shown on screen or printed, never saved as this file.</p>"
             + "".join(cards))
     Path(out).write_text(page); return out, checks
 
 if __name__ == "__main__":
-    text = Path(sys.argv[1]).read_text() if len(sys.argv) > 1 else sys.stdin.read()
-    print(build(text)[0])
+    args = [a for a in sys.argv[1:] if not a.startswith("--as-at=")]
+    as_at = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--as-at=")), None)
+    text = Path(args[0]).read_text() if args else sys.stdin.read()
+    print(build(text, as_at=as_at)[0])
