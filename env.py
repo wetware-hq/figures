@@ -49,10 +49,14 @@ class Env:
         import figures
         pid = res.patient                    # the paste's own synthetic id, not a hard-coded fixture id
         rows = ["patient,local_label,t,value,unit,device,derivation,status,gap_reason"]
-        for r in res.rows.filter(res.rows["status"] != "censored").iter_rows(named=True):
+        for r in res.rows.iter_rows(named=True):      # censored (<X, >X) rows kept: drawn as the ▼ ▲ limit markers
             v = "" if r["value"] is None else r["value"]
+            if r["status"] == "censored":
+                v, st = f'{r["bound"] or ""}{v:g}', "censored"
+            else:
+                st = "measured" if r["status"] == "measured" else "absent"
             rows.append(f'{pid},{r["local_label"]},{r["t"]:%Y-%m-%dT%H:%M:%S},{v},{r["unit"]},{r["device"] or "unknown"},assay,'
-                        f'{"measured" if r["status"] == "measured" else "absent"},{r["gap_reason"] or ""}')
+                        f'{st},{r["gap_reason"] or ""}')
         figures.build("\n".join(rows), out + ".html", as_at=as_at)
         files = sorted(str(p) for p in Path(out).glob("*"))
         return _ok("render", {"ok": True, "shown": True, "files": files})
