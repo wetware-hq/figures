@@ -118,7 +118,7 @@ def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h, row):
     rec = len(absences(s)); inferred = max(len(runs) - 1 - rec, 0)
     e = html.escape
     return (f"<b>{e(synopsis(s, runs, row, unit))}</b><br>"
-            f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), one patient, {e(frequency(s))}, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
+            f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), single patient not verified, {e(frequency(s))}, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
             f"(&gt;{limit_h:g} h), {n_unmapped} results unmapped, limits {e(row.get('status','?')).lower()}, mapping {mapping_ver}, drawn {DRAWN:%d %b %Y %H:%M}.")
 
 def frequency(s):
