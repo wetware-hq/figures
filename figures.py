@@ -79,7 +79,7 @@ def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward")
     if last:
         age = (DRAWN - last["t"]).total_seconds() / 3600
         ax.annotate(f"last measured {last['t']:%d %b %H:%M}" + (f",\n{age:.0f} h before this chart was made" if age > 0 else ""),
-                    (last["t"], last["v"]), xytext=(-4, 8), textcoords="offset points", ha="right", fontsize=6.5)
+                    (last["t"], last["v"]), xytext=(4, 30), textcoords="offset points", ha="right", arrowprops=dict(arrowstyle="-", color="0.4", lw=0.6), fontsize=6.5)
     name = DISPLAY.get(concept, concept)
     ax.set_ylabel(f"{name} ({unit})"); ax.set_title(f"{name}, one patient")
     ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d %b"))
