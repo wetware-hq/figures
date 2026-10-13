@@ -121,9 +121,6 @@ def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h, row):
             f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), one patient, {e(frequency(s))}, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
             f"(&gt;{limit_h:g} h), {n_unmapped} results unmapped, limits {e(row.get('status','?')).lower()}, mapping {mapping_ver}, drawn {DRAWN:%d %b %Y %H:%M}.")
 
-def png_b64(fig):
-    b = io.BytesIO(); fig.savefig(b, format="png"); plt.close(fig); return base64.b64encode(b.getvalue()).decode()
-
 def frequency(s):
     t = s.filter(pl.col("status") == "measured").sort("t")["t"]
     h = [x.total_seconds() / 3600 for x in t.diff().drop_nulls()]

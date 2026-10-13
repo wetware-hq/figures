@@ -1,7 +1,7 @@
 from pathlib import Path
 import polars as pl
 from figures import build
-FIX = Path("/workspace/wetware/figures-fixture/fixture_export.csv").read_text()
+FIX = (Path(__file__).parent / "fixtures" / "fixture_export.csv").read_text()
 
 def test_rules():
     _, checks = build(FIX, "/tmp/g.html", as_at="2026-10-16T08:00:00")

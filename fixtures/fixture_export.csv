@@ -1,0 +1,18 @@
+patient,local_label,t,value,unit,device,derivation,status,gap_reason
+SYNTH-001,CRP,2026-10-01T08:00:00,180.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP,2026-10-02T08:00:00,140.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP,2026-10-03T08:00:00,95.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP,2026-10-04T08:00:00,60.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP,2026-10-05T08:00:00,42.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP,2026-10-06T08:00:00,41.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP,2026-10-07T08:00:00,40.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP,2026-10-08T08:00:00,41.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP (ward 7 panel),2026-10-09T08:00:00,3.9,mg/dL,lab:ward7,assay,measured,
+SYNTH-001,C-reactive protein,2026-10-10T08:00:00,38.0,mg/L,lab:core,assay,measured,
+SYNTH-001,CRP,2026-10-11T08:00:00,,mg/L,lab:core,assay,absent,unknown
+SYNTH-001,CRP,2026-10-12T08:00:00,,mg/L,lab:core,assay,absent,unknown
+SYNTH-001,CRP,2026-10-13T08:00:00,,mg/L,lab:core,assay,absent,unknown
+SYNTH-001,CRP,2026-10-14T08:00:00,36.0,mg/L,lab:core,assay,measured,
+SYNTH-001,Nurse wellbeing score,2026-10-01T08:00:00,7.0,score,paper,subjective,measured,
+SYNTH-001,Nurse wellbeing score,2026-10-03T08:00:00,6.0,score,paper,subjective,measured,
+SYNTH-001,Nurse wellbeing score,2026-10-05T08:00:00,8.0,score,paper,subjective,measured,
