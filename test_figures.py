@@ -59,3 +59,39 @@ def test_mismatched_pair_refused():
     build(FIX, "/tmp/v2.html", as_at="1937-10-16T08:00:00")
     shutil.copy("/tmp/v2/figure_1.png", "/tmp/v1/figure_1.png")   # stale legend, new image
     with pytest.raises(SystemExit, match="REFUSED"): verify("/tmp/v1")
+
+
+# ---------- top-level guard: any error -> one fixed line, row number only ----------
+import subprocess, sys as _sys
+_FIG = str(Path(__file__).parent / "figures.py")
+
+
+def _run(tmp_path, paste):
+    p = tmp_path / "paste.csv"; p.write_text(paste)
+    return subprocess.run([_sys.executable, _FIG, str(p)], capture_output=True, text=True, cwd=tmp_path)
+
+
+def test_guard_bad_row_mrn_header_no_echo(tmp_path):
+    paste = ("MRN,local_label,t,value,unit,device,derivation,status,gap_reason\n"
+             "SYNTH-7731,CRP,1937-10-01T08:00:00,180.0,mg/L,lab:core,assay,measured,\n"
+             "SYNTH-7731,CRP,notatime,Synthvalue,mg/L,lab:core,assay,measured,\n")
+    r = _run(tmp_path, paste)
+    assert r.returncode != 0 and r.stdout == ""
+    assert r.stderr.strip() == "Refused: row 2 doesn't match the expected layout."
+    for tok in ("MRN", "SYNTH-7731", "CRP", "notatime", "Synthvalue", "mg/L", "Traceback", "Error", "local_label"):
+        assert tok not in r.stdout + r.stderr, tok
+    assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
+
+
+def test_guard_short_row(tmp_path):
+    paste = ("MRN,local_label,t,value\nSYNTH-7732,CRP,1937-10-01T08:00:00,5\nSYNTH-7732,CRP\n")
+    r = _run(tmp_path, paste)
+    assert r.returncode != 0 and r.stderr.strip() == "Refused: row 2 doesn't match the expected layout."
+    assert "SYNTH-7732" not in r.stderr and "MRN" not in r.stderr
+
+
+def test_guard_no_row_known(tmp_path):
+    r = _run(tmp_path, "MRN SYNTH-7733 only one line\n")
+    assert r.returncode != 0 and r.stdout == ""
+    assert r.stderr.strip() == "Refused: the paste doesn't match the expected layout."
+    assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]

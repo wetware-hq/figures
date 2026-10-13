@@ -186,9 +186,48 @@ def verify(outdir):
             raise SystemExit(f"REFUSED: Figure {n} legend is render {rid} but image is '{got}'. Re-render both.")
     return True
 
+LAYOUT_ROW = "Refused: row {n} doesn't match the expected layout."
+LAYOUT_ANY = "Refused: the paste doesn't match the expected layout."
+
+def bad_row(text):
+    """Best guess at the first data row (1 = first row under the header) that breaks the layout; None if unknown.
+    Looks at shape only; never returns row text."""
+    try:
+        lines = [l for l in text.strip().splitlines() if l.strip()]
+        if len(lines) < 2: return None
+        sep = "\t" if text.count("\t") > text.count(",") else ","
+        head = [h.strip() for h in lines[0].split(sep)]
+        for n, l in enumerate(lines[1:], 1):
+            cells = l.split(sep)
+            if len(cells) != len(head): return n
+            row = dict(zip(head, (c.strip() for c in cells)))
+            if "t" in row:
+                try: datetime.fromisoformat(row["t"])
+                except ValueError: return n
+    except Exception:
+        return None
+    return None
+
+def main(argv):
+    """One top-level guard: any failure becomes one fixed line (row number only), exit 2, nothing written."""
+    out = Path("gallery.html").with_suffix("")
+    existed = out.exists()
+    text = ""
+    try:
+        if argv[:1] == ["--verify"]: print(verify(argv[1])); return 0
+        args = [a for a in argv if not a.startswith("--as-at=")]
+        as_at = next((a.split("=", 1)[1] for a in argv if a.startswith("--as-at=")), None)
+        text = Path(args[0]).read_text() if args else sys.stdin.read()
+        result = build(text, as_at=as_at)[0]
+    except BaseException as e:
+        if isinstance(e, SystemExit) and e.code in (0, None): return 0
+        if not existed and out.exists():
+            import shutil; shutil.rmtree(out, ignore_errors=True)
+        n = bad_row(text)
+        sys.stderr.write((LAYOUT_ROW.format(n=n) if n else LAYOUT_ANY) + "\n")
+        return 2
+    print(result)
+    return 0
+
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["--verify"]: print(verify(sys.argv[2])); sys.exit()
-    args = [a for a in sys.argv[1:] if not a.startswith("--as-at=")]
-    as_at = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--as-at=")), None)
-    text = Path(args[0]).read_text() if args else sys.stdin.read()
-    print(build(text, as_at=as_at)[0])
+    sys.exit(main(sys.argv[1:]))
