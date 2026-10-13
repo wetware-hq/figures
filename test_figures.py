@@ -25,7 +25,14 @@ def test_inferred_break_not_recorded_gap():
     assert len(absences(s)) == 1  # only the recorded absence; inferred breaks never enter the data
 
 def test_journal_and_test_copies():
-    build(FIX, "/tmp/j.html", mode="journal", as_at="2026-10-16T08:00:00")
+    _, j = build(FIX, "/tmp/j.html", mode="journal", as_at="2026-10-16T08:00:00")
+    _, n = build(FIX, "/tmp/n.html", as_at="2026-10-16T08:00:00")
+    jt = [t.get_text() for t in j[0][2].texts]
+    nt = [t.get_text() for t in n[0][2].texts]
+    assert any("NOT FOR CLINICAL USE" in t for t in jt)
+    assert not any("NOT FOR CLINICAL USE" in t for t in nt)
+    for ext in ("png", "svg", "pdf"):
+        assert Path(f"/tmp/j/figure_1.{ext}").stat().st_size > 0
 
 def test_future_dated_result_refused():
     import pytest
