@@ -113,12 +113,25 @@ def between(a, b):
     h = (b - a).total_seconds() / 3600
     return f"{h/24:.0f} days ({h:.0f} h) between results" if h >= 48 else f"{h:.0f} h between results"
 
+def line_pieces(run, censored_times):
+    """Split a run's drawn line wherever a censored marker sits between two results. Gap timing is unchanged
+    (the run is still one run); only the drawn line stops short of the marker on both sides."""
+    pieces, cur = [], []
+    for p in run:
+        if cur and any(cur[-1]["t"] <= c <= p["t"] for c in censored_times):
+            pieces.append(cur); cur = []
+        cur.append(p)
+    if cur: pieces.append(cur)
+    return pieces
+
 def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward"):
     """One axes, x = time, y = value. Nothing else."""
     fig, ax = plt.subplots(figsize=(4.21, 2.9))
     runs = segments(s, limit)
+    cens = s.filter(pl.col("status") == "censored")["t"].to_list()
     for r in runs:
-        ax.plot([p["t"] for p in r], [p["v"] for p in r], marker="o", color="C0")
+        for piece in line_pieces(r, cens):          # no trend line into or out of a censored marker
+            ax.plot([p["t"] for p in piece], [p["v"] for p in piece], marker="o", color="C0")
     last = runs[-1][-1] if runs else None
     if last and len(runs[-1]) == 1:
         ax.plot([last["t"]], [last["v"]], marker="o", mfc="white", color="C0", zorder=3)

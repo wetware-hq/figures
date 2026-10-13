@@ -383,3 +383,22 @@ def test_r11_wide_paste_blank_line_counts_in_row_numbers(tmp_path):
     leg = (tmp_path / "gallery" / "legends.md").read_text()
     assert "Flag: no normal range on file for the test on row 4. It's charted without one." in r.stderr
     assert "above the test's limit (>10). The real value is higher than shown. (row 4)" in leg
+
+
+def test_r11f_no_trend_line_into_or_out_of_censored_marker():
+    import polars as pl, datetime as dt
+    import figures as F
+    ts = [dt.datetime(1937, 10, d, 8) for d in (1, 2, 3, 4)]
+    s = pl.DataFrame({"t": ts, "v": [10.0, 300.0, 20.0, 25.0], "status": ["measured", "censored", "measured", "measured"],
+                      "bound": [None, ">", None, None], "result_status": [None] * 4, "line": [2, 3, 4, 5],
+                      "device": [None] * 4, "concept_id": ["crp"] * 4})
+    runs = F.segments(s, dt.timedelta(hours=36))
+    assert len(runs) == 1                                   # gap timing kept: one run, no gap
+    assert [[p["v"] for p in piece] for piece in F.line_pieces(runs[0], [ts[1]])] == [[10.0], [20.0, 25.0]]
+    fig, runs, _ = F.draw(s, "crp", "mg/L", "SYNTH-1", 0, "x", dt.timedelta(hours=36))
+    for ln in fig.axes[0].get_lines():
+        xs = list(ln.get_xdata())
+        if len(xs) > 1:                                      # any drawn line never spans the censored time
+            import matplotlib.dates as md
+            xs = [md.num2date(x).replace(tzinfo=None) if not isinstance(x, dt.datetime) else x for x in xs]
+            assert not (min(xs) <= ts[1] <= max(xs)), xs
