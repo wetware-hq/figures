@@ -1,3 +1,4 @@
+import pytest
 from pathlib import Path
 import polars as pl
 from figures import build
@@ -71,24 +72,50 @@ def _run(tmp_path, paste):
     return subprocess.run([_sys.executable, _FIG, str(p)], capture_output=True, text=True, cwd=tmp_path)
 
 
-def test_guard_bad_row_mrn_header_no_echo(tmp_path):
+DIAG = r"Diagnostic: [A-Za-z_]\w*(/[A-Z_]+)? at (figures|clean)\.py:(\d+|unknown)"
+TOKS = ("MRN", "SYNTH-7731", "CRP", "notatime", "Synthvalue", "mg/L", "Traceback", "local_label")
+
+
+def test_guard_bad_rows_mrn_header_no_echo(tmp_path):
     paste = ("MRN,local_label,t,value,unit,device,derivation,status,gap_reason\n"
-             "SYNTH-7731,CRP,1937-10-01T08:00:00,180.0,mg/L,lab:core,assay,measured,\n"
-             "SYNTH-7731,CRP,notatime,Synthvalue,mg/L,lab:core,assay,measured,\n")
+             "SYNTH-7731,CRP,notatime,180.0,mg/L,lab:core,assay,measured,\n"
+             "SYNTH-7731,CRP,1937-10-02T08:00:00,Synthvalue,mg/L,lab:core,assay,measured,\n")
     r = _run(tmp_path, paste)
-    assert r.returncode != 0 and r.stdout == ""
+    assert r.returncode == 2 and r.stdout == ""
     first, diag = r.stderr.strip().splitlines()
-    assert first == "Refused: row 2 doesn't match the expected layout."
-    assert re.fullmatch(r"Diagnostic: [A-Za-z_]\w* at figures\.py:(\d+|unknown)", diag)
-    for tok in ("MRN", "SYNTH-7731", "CRP", "notatime", "Synthvalue", "mg/L", "Traceback", "local_label"):
+    assert first == "Refused: row 1 doesn't match the expected layout."
+    assert re.fullmatch(DIAG, diag)
+    for tok in TOKS:
         assert tok not in r.stdout + r.stderr, tok
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
 
 
-def test_guard_short_row(tmp_path):
-    paste = ("MRN,local_label,t,value\nSYNTH-7732,CRP,1937-10-01T08:00:00,5\nSYNTH-7732,CRP\n")
+def test_mrn_header_paste_charts_through_clean(tmp_path):
+    paste = ("MRN\tTest\tCollected\tResult\tUnits\n"
+             "SYNTH-7734\tCRP\t1937-10-01 08:00\t180\tmg/L\n"
+             "SYNTH-7734\tCRP\t1937-10-02 08:00\tnotanumber\tmg/L\n"
+             "SYNTH-7734\tCRP\t1937-10-03 08:00\t90\tmg/L\n")
     r = _run(tmp_path, paste)
-    assert r.returncode != 0 and r.stderr.splitlines()[0] == "Refused: row 2 doesn't match the expected layout."
+    assert r.returncode == 0, r.stderr
+    assert (tmp_path / "gallery" / "index.html").exists() and "notanumber" not in r.stdout + r.stderr
+
+
+@pytest.mark.parametrize("sep", ["|", ";"])
+def test_other_separators_via_clean(tmp_path, sep):
+    rows = ["patient", "test", "time", "result", "unit"], ["SYNTH-7735", "CRP", "1937-10-01 08:00", "180", "mg/L"], \
+           ["SYNTH-7735", "CRP", "1937-10-02 08:00", "90", "mg/L"]
+    r = _run(tmp_path, "\n".join(sep.join(x) for x in rows) + "\n")
+    if sep == "|":
+        assert r.returncode == 0, r.stderr
+    else:                                  # clean.py does not split on ';': refused, no pasted text
+        assert r.returncode == 2 and r.stderr.splitlines()[0].startswith("Refused:")
+        assert "SYNTH-7735" not in r.stderr and "CRP" not in r.stderr
+
+
+def test_guard_short_row(tmp_path):
+    paste = ("MRN,local_label,t,value,unit\nSYNTH-7732,CRP,notatime,5,mg/L\nSYNTH-7732,CRP\n")
+    r = _run(tmp_path, paste)
+    assert r.returncode != 0 and r.stderr.splitlines()[0] == "Refused: row 1 doesn't match the expected layout."
     assert "SYNTH-7732" not in r.stderr and "MRN" not in r.stderr
 
 
@@ -96,6 +123,6 @@ def test_guard_no_row_known(tmp_path):
     r = _run(tmp_path, "MRN SYNTH-7733 only one line\n")
     assert r.returncode != 0 and r.stdout == ""
     assert r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
-    assert re.fullmatch(r"Diagnostic: \w+ at figures\.py:(\d+|unknown)", r.stderr.splitlines()[1])
+    assert re.fullmatch(DIAG, r.stderr.splitlines()[1])
     assert "SYNTH-7733" not in r.stderr and "MRN" not in r.stderr
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]

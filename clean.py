@@ -20,7 +20,10 @@ ALIASES = {
     "status": ["status", "result status"],
     "device": ["device", "source", "analyser", "method"],
     "specimen": ["specimen", "sample"],
+    "gap_reason": ["gap_reason", "gap reason"],
+    "as_at": ["as_at", "as at"],
 }
+ABSENT_STATUS = {"absent", "missed", "not done", "not collected"}
 COMMENTS = {"haemolysed": "haemolysed", "hemolysed": "haemolysed", "hemolyzed": "haemolysed",
             "insufficient": "insufficient sample", "cancelled": "cancelled", "canceled": "cancelled",
             "see comment": "see comment", "to follow": "result to follow", "pending": "result to follow",
@@ -152,7 +155,10 @@ def clean(text, synthetic_only=True):
         t, why = parse_time(get(r, "t"))
         if why:
             rejects.append((i, "time", why)); continue
-        val, status, extra = parse_value(get(r, "value"))
+        if not get(r, "value") and get(r, "status").lower() in ABSENT_STATUS:    # a recorded absence
+            val, status, extra = None, "absent", get(r, "gap_reason") or "recorded absence"
+        else:
+            val, status, extra = parse_value(get(r, "value"))
         if status == "reject":
             rejects.append((i, "value", extra)); continue
         unit = get(r, "unit")

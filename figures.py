@@ -5,26 +5,29 @@ tick strip shows when measurements happened; unmapped rows shown on the chart; n
 import sys, io, base64, html, subprocess, secrets, re
 from pathlib import Path
 import polars as pl, matplotlib; matplotlib.use("Agg")
+import clean as cleaner
 import matplotlib.pyplot as plt, matplotlib.dates
 HERE = Path(__file__).parent
 plt.style.use(HERE / "default.mplstyle")
 DISPLAY = dict(pl.read_csv(HERE / "concepts.csv").iter_rows())
 
-def read_table(text):
-    sep = "\t" if text.count("\t") > text.count(",") else ","
-    return pl.read_csv(io.StringIO(text.strip()), separator=sep, try_parse_dates=True, infer_schema_length=0)
+class NoRows(Exception):
+    """No usable rows after cleaning. Carries the first rejected data row number only."""
+    def __init__(self, row=None):
+        super().__init__("no usable rows"); self.row = row
 
-def prepare(raw):
-    m = pl.read_csv(HERE / "mapping.csv", infer_schema_length=0)
-    u = pl.read_csv(HERE / "units.csv")
-    d = (raw.with_columns(pl.col("t").str.to_datetime(), pl.col("value").cast(pl.Float64, strict=False))
-            .join(m.rename({"unit": "map_unit"}), on="local_label", how="left"))
-    unmapped = d.filter(pl.col("concept_id").is_null() | (pl.col("concept_id") == ""))
-    d = (d.filter(pl.col("concept_id").is_not_null() & (pl.col("concept_id") != ""))
-          .join(u, left_on="unit", right_on="from_unit", how="left")
-          .with_columns((pl.col("value") * pl.col("factor")).alias("v")))
-    bad_unit = d.filter(pl.col("factor").is_null() & (pl.col("status") == "measured"))
-    return d.filter(pl.col("factor").is_not_null() | (pl.col("status") != "measured")), unmapped, bad_unit
+def load(text):
+    """Every paste goes through clean.py (the one parser). Returns (rows, unmapped count, patient, as_at)."""
+    res = cleaner.clean(text)                       # synthetic only; refuses anything else
+    table = cleaner.split(text); h = cleaner.header_map(table[0])
+    pats = [r[h["patient"]].strip() for r in table[1:] if "patient" in h and len(r) > h["patient"] and r[h["patient"]].strip()]
+    ats = [r[h["as_at"]].strip() for r in table[1:] if "as_at" in h and len(r) > h["as_at"] and r[h["as_at"]].strip()]
+    if res.rows.height == 0:
+        raise NoRows(min((ln for ln, _, _ in res.rejects), default=1) - 1 if res.rejects else None)
+    d = res.rows.with_columns(pl.lit(pats[0]).alias("patient"), pl.col("unit").alias("map_unit"),
+                              pl.col("value").alias("v"))
+    n_unmapped = sum(1 for _, f, _ in res.rejects if f in ("label", "unit"))
+    return d, n_unmapped, pats[0], (max(ats) if ats else None)
 
 def segments(s, limit):
     """Runs of measured points; a run ends at a recorded absence, or (cosmetic only) after > limit with no result."""
@@ -131,13 +134,12 @@ def frequency(s):
     return f"{len(t)} results, usually every ~{st.median(h):.0f} h"
 
 def build(text, out="gallery.html", mode="ward", as_at=None):
-    raw = read_table(text)
-    if as_at is None and "as_at" in raw.columns: as_at = raw["as_at"].drop_nulls().max()
+    d, n_unmapped, patient, paste_as_at = load(text)
+    if as_at is None: as_at = paste_as_at
     if as_at is not None:
         ANCHOR.update(t=datetime.fromisoformat(str(as_at)), label=f"data as-at {datetime.fromisoformat(str(as_at)):%d %b %H:%M}")
     else:
         ANCHOR.update(t=DRAWN, label="this chart was made")
-    d, unmapped, bad = prepare(raw)
     future = d.filter((pl.col("status") == "measured") & (pl.col("t") > ANCHOR["t"]))
     if future.height:
         raise SystemExit(f"REFUSED: {future.height} result(s) dated after {ANCHOR['label']} (first {future['t'].min()}). Clock or data error.")
@@ -149,7 +151,7 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
     cards, checks, legends = [], [], []
     for (patient, concept), s in d.group_by(["patient", "concept_id"], maintain_order=True):
         unit = s["map_unit"].drop_nulls()[0]
-        nu = unmapped.filter(pl.col("patient") == patient).height + bad.filter(pl.col("patient") == patient).height
+        nu = n_unmapped
         row = limits.filter(pl.col("concept_id") == concept); lim = row["gap_limit_h"]
         if lim.is_empty(): raise SystemExit(f"No signed-off gap limit for {concept} in limits.csv")
         limit_h = float(lim[0]); from datetime import timedelta
@@ -189,21 +191,17 @@ def verify(outdir):
 LAYOUT_ROW = "Refused: row {n} doesn't match the expected layout."
 LAYOUT_ANY = "Refused: no rows in the expected layout were found. Nothing was saved."
 
-def bad_row(text):
-    """Best guess at the first data row (1 = first row under the header) that breaks the layout; None if unknown.
-    Looks at shape only; never returns row text."""
+def bad_row(text, e=None):
+    """First data row (1 = first row under the header) that breaks the layout, using clean.py's reader; None if unknown.
+    Never returns row text."""
+    if isinstance(e, NoRows): return e.row
     try:
-        lines = [l for l in text.strip().splitlines() if l.strip()]
-        if len(lines) < 2: return None
-        sep = "\t" if text.count("\t") > text.count(",") else ","
-        head = [h.strip() for h in lines[0].split(sep)]
-        for n, l in enumerate(lines[1:], 1):
-            cells = l.split(sep)
-            if len(cells) != len(head): return n
-            row = dict(zip(head, (c.strip() for c in cells)))
-            if "t" in row:
-                try: datetime.fromisoformat(row["t"])
-                except ValueError: return n
+        table = cleaner.split(text)
+        head, h = table[0], cleaner.header_map(table[0])
+        if not {"local_label", "t", "value"} <= set(h): return None
+        for n, r in enumerate(table[1:], 1):
+            if len(r) != len(head): return n
+            if cleaner.parse_time(r[h["t"]])[1]: return n
     except Exception:
         return None
     return None
@@ -211,9 +209,10 @@ def bad_row(text):
 def diagnostic(e):
     """Error type name and the deepest figures.py line it passed through. Never the error message (it may hold pasted text)."""
     import traceback
-    here = [f for f in traceback.extract_tb(e.__traceback__) if Path(f.filename).name == "figures.py"]
-    loc = f"figures.py:{here[-1].lineno}" if here else "figures.py:unknown"
-    return f"Diagnostic: {type(e).__name__} at {loc}"
+    here = [f for f in traceback.extract_tb(e.__traceback__) if Path(f.filename).name in ("figures.py", "clean.py")]
+    loc = f"{Path(here[-1].filename).name}:{here[-1].lineno}" if here else "figures.py:unknown"
+    name = type(e).__name__ + (f"/{e.code}" if isinstance(e, cleaner.Refused) else "")
+    return f"Diagnostic: {name} at {loc}"
 
 def main(argv):
     """One top-level guard: any failure becomes one fixed line (row number only), exit 2, nothing written."""
@@ -230,7 +229,7 @@ def main(argv):
         if isinstance(e, SystemExit) and e.code in (0, None): return 0
         if not existed and out.exists():
             import shutil; shutil.rmtree(out, ignore_errors=True)
-        n = bad_row(text)
+        n = bad_row(text, e)
         sys.stderr.write((LAYOUT_ROW.format(n=n) if n else LAYOUT_ANY) + "\n")
         sys.stderr.write(diagnostic(e) + "\n")
         return 2
