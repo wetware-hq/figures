@@ -29,19 +29,23 @@ NOT_DONE_LEGEND = "✕ Not done: no test was done at this time."
 NO_RANGE_FLAG = "Flag: no normal range on file for the test on row {n}. It's charted without one."
 NOT_DONE = {"missed", "not done", "not collected"}
 
-def count_line(n, a, b, c_rows):
-    """'<N> rows couldn't be read and aren't shown: <a> is/are marked as a gap(s), <b> has/have no readable time,
-    <c> has/have a test name we didn't recognise (row 7).' Each part only if nonzero."""
-    c = len(c_rows)
+def _rows(rows):
+    rs = sorted(set(rows))
+    return f"(row {rs[0]})" if len(rs) == 1 else f"(rows {', '.join(str(r) for r in rs)})"
+
+def count_line(gap_rows, time_rows, label_rows):
+    """Signed: '3 values couldn't be read and aren't shown: 1 is marked as a gap (row 4), 1 has no readable time
+    (row 7), 1 has a test name we didn't recognise (row 7).' One entry per value (a wide-paste row can hold several);
+    rows from the original paste. A part only when nonzero; verbs match the number; parts add up to the total."""
+    a, b, c = len(gap_rows), len(time_rows), len(label_rows)
+    n = a + b + c
     if not n: return ""
     parts = []
-    if a: parts.append(f"{a} is marked as a gap" if a == 1 else f"{a} are marked as gaps")
-    if b: parts.append(f"{b} has no readable time" if b == 1 else f"{b} have no readable time")
-    if c:
-        rows = ", ".join(str(r) for r in c_rows)
-        parts.append(f"1 has a test name we didn't recognise (row {rows})" if c == 1 else
-                     f"{c} have test names we didn't recognise (rows {rows})")
-    return f"{n} {'row' if n == 1 else 'rows'} couldn't be read and {'isn' if n == 1 else 'aren'}'t shown: " + ", ".join(parts) + "."
+    if a: parts.append(f"{a} is marked as a gap {_rows(gap_rows)}" if a == 1 else f"{a} are marked as gaps {_rows(gap_rows)}")
+    if b: parts.append(f"{b} has no readable time {_rows(time_rows)}" if b == 1 else f"{b} have no readable time {_rows(time_rows)}")
+    if c: parts.append(f"1 has a test name we didn't recognise {_rows(label_rows)}" if c == 1 else
+                       f"{c} have test names we didn't recognise {_rows(label_rows)}")
+    return f"{n} {'value' if n == 1 else 'values'} couldn't be read and {'isn' if n == 1 else 'aren'}'t shown: " + ", ".join(parts) + "."
 
 def load(text):
     """Every paste goes through clean.py (the one parser). Returns (rows, unmapped count, patient, as_at)."""
@@ -67,8 +71,8 @@ def load(text):
         d = pl.concat([d, gaps], how="diagonal_relaxed").sort(["concept_id", "t"])
     n_unmapped = sum(1 for _, f, _ in res.rejects if f in ("label", "unit"))
     global COUNT_LINE
-    label_rows = sorted({ln for ln, f, _ in res.rejects if f == "label"})   # original paste rows (wide: one per row)
-    COUNT_LINE = count_line(len(res.rejects), len(res.unreadable), res.no_time, label_rows)
+    by = lambda fields: [ln for ln, f, _ in res.rejects if f in fields]       # original paste rows, one per value
+    COUNT_LINE = count_line(by(("value", "unit", "status")), by(("time",)), by(("label",)))
     return d, n_unmapped, pats[0], (max(ats) if ats else None)
 
 COUNT_LINE = ""

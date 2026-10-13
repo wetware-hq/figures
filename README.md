@@ -65,7 +65,7 @@ A refusal shows the row number, the error type and the code line. It never shows
 
 Censored values (`<X`, `>X`) are drawn as marked limits (a bar at the limit with an arrow), never as points. They are left out of trend lines, the first/latest values and any normal-range comparison, and they don't split a line into a gap.
 
-A count line sits above the chart, for example: "3 rows couldn't be read and aren't shown: 1 is marked as a gap, 1 has no readable time, 1 has a test name we didn't recognise (row 7)." Each part appears only when it isn't zero, singular or plural matches the number, and the parts add up to the total.
+A count line sits above the chart, for example: "3 values couldn't be read and aren't shown: 1 is marked as a gap (row 4), 1 has no readable time (row 7), 1 has a test name we didn't recognise (row 7)." It counts values (a wide-paste row can hold several). Each part appears only when it isn't zero, singular or plural matches the number, the parts add up to the total, and rows are numbered from the original paste.
 
 A test missing from `limits.csv` is charted without a normal range and flagged: "Flag: no normal range on file for the test on row 4. It's charted without one." It is never shown as normal.
 

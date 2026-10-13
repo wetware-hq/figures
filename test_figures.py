@@ -148,7 +148,7 @@ def test_unreadable_row_with_time_becomes_gap_and_counted(tmp_path):
                                       "SYNTH-8001,CRP,1937-10-03 08:00,90,mg/L,final\n")
     assert "Gap: a result was recorded here but couldn&#x27;t be read." in page or \
            "Gap: a result was recorded here but couldn't be read." in page
-    assert "2 rows couldn't be read and aren't shown: 1 is marked as a gap, 1 has no readable time." in leg
+    assert "2 values couldn't be read and aren't shown: 1 is marked as a gap (row 3), 1 has no readable time (row 4)." in leg
     assert "Synthjunk" not in page + leg + r.stdout + r.stderr and "notatime" not in page + leg
 
 
@@ -187,19 +187,43 @@ from figures import count_line
 
 
 def test_count_line_grammar_and_parts():
-    assert count_line(0, 0, 0, []) == ""
-    assert count_line(1, 1, 0, []) == "1 row couldn't be read and isn't shown: 1 is marked as a gap."
-    assert count_line(4, 2, 1, [7]) == ("4 rows couldn't be read and aren't shown: 2 are marked as gaps, "
-                                        "1 has no readable time, 1 has a test name we didn't recognise (row 7).")
-    assert count_line(5, 0, 3, [2, 4]) == ("5 rows couldn't be read and aren't shown: 3 have no readable time, "
-                                           "2 have test names we didn't recognise (rows 2, 4).")
+    assert count_line([], [], []) == ""
+    assert count_line([4], [7], [7]) == ("3 values couldn't be read and aren't shown: 1 is marked as a gap (row 4), "
+                                         "1 has no readable time (row 7), 1 has a test name we didn't recognise (row 7).")
+    assert count_line([5], [], []) == "1 value couldn't be read and isn't shown: 1 is marked as a gap (row 5)."
+    assert count_line([3, 6], [2], [9]) == ("4 values couldn't be read and aren't shown: 2 are marked as gaps (rows 3, 6), "
+                                            "1 has no readable time (row 2), 1 has a test name we didn't recognise (row 9).")
+    assert count_line([], [2, 3, 4], [5, 8]) == ("5 values couldn't be read and aren't shown: 3 have no readable time "
+                                                 "(rows 2, 3, 4), 2 have test names we didn't recognise (rows 5, 8).")
+    assert count_line([4, 4], [], []) == "2 values couldn't be read and aren't shown: 2 are marked as gaps (row 4)."
+
+
+@pytest.mark.parametrize("g,t,l", [([2], [], []), ([], [3, 4], []), ([2, 5], [7], [8, 9, 10]), ([], [], [6])])
+def test_r11f_count_line_parts_add_up(g, t, l):
+    import re as _re
+    line = count_line(g, t, l)
+    total = int(line.split()[0])
+    parts = [int(x) for x in _re.findall(r"(?:: |, )(\d+) ", line)]
+    assert total == sum(parts) == len(g) + len(t) + len(l)
+    assert ("value couldn't" in line) == (total == 1) and ("isn't shown" in line) == (total == 1)
+    assert "0 " not in line.replace("10", "")
+
+
+def test_r11f_count_line_gallery_original_rows(tmp_path):
+    page, leg, r = _gallery(tmp_path, "SYNTH-8141,CRP,1937-10-01 08:00,180,mg/L,final\n\n"
+                                      "SYNTH-8141,CRP,1937-10-02 08:00,Synthjunk,mg/L,final\n"
+                                      "SYNTH-8141,CRP,1937-10-03 08:00,90,mg/L,final\n"
+                                      "SYNTH-8141,CRP,notatime,99,mg/L,final\n"
+                                      "SYNTH-8141,Synthwidget,1937-10-04 08:00,5,mg/L,final\n")
+    assert ("3 values couldn't be read and aren't shown: 1 is marked as a gap (row 4), 1 has no readable time (row 6), "
+            "1 has a test name we didn't recognise (row 7).") in leg
 
 
 def test_unrecognised_test_name_counted_with_row(tmp_path):
     page, leg, r = _gallery(tmp_path, "SYNTH-8101,CRP,1937-10-01 08:00,180,mg/L,final\n"
                                       "SYNTH-8101,Synthwidget,1937-10-02 08:00,5,mg/L,final\n"
                                       "SYNTH-8101,CRP,1937-10-03 08:00,90,mg/L,final\n")
-    assert "1 row couldn't be read and isn't shown: 1 has a test name we didn't recognise (row 3)." in leg
+    assert "1 value couldn't be read and isn't shown: 1 has a test name we didn't recognise (row 3)." in leg
     assert "Synthwidget" not in page + leg + r.stdout + r.stderr
 
 
@@ -369,7 +393,7 @@ def test_r11_wide_paste_messages_use_original_rows(tmp_path):
     r = _run(tmp_path, paste)
     assert r.returncode == 0, r.stderr
     leg = (tmp_path / "gallery" / "legends.md").read_text()
-    assert "test name we didn't recognise (row 2)." in leg            # one original row, not three melted rows
+    assert "3 values couldn't be read and aren't shown: 3 have test names we didn't recognise (row 2)." in leg
     assert "below the test's limit (<5). The real value is lower than shown. (row 3)" in leg
     assert "Flag: no normal range on file for the test on row 4. It's charted without one." in r.stderr
 
