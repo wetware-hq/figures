@@ -37,3 +37,10 @@ def test_no_title_and_anchored_age():
     ax = checks[0][2].axes[0]
     assert ax.get_title() == ""
     assert any("48 h before data as-at 16 Oct 08:00" in x.get_text() for x in ax.texts)
+
+def test_png_has_no_legend_text():
+    build(FIX, "/tmp/gl.html", as_at="2026-10-16T08:00:00")
+    from pathlib import Path
+    assert Path("/tmp/gl/figure_1.png").exists() and "Read with the bedside" in Path("/tmp/gl/legends.md").read_text()
+    svg = Path("/tmp/gl/figure_1.svg").read_text()
+    assert "Read with the bedside" not in svg and "clinical team" not in svg

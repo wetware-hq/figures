@@ -148,7 +148,8 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
                               capture_output=True, text=True).stdout.strip() or "uncommitted"
     except Exception: ver = "uncommitted"
     limits = pl.read_csv(HERE / "limits.csv")
-    cards, checks = [], []
+    outdir = Path(out).with_suffix(""); outdir.mkdir(exist_ok=True)
+    cards, checks, legends = [], [], []
     for (patient, concept), s in d.group_by(["patient", "concept_id"], maintain_order=True):
         unit = s["map_unit"].drop_nulls()[0]
         nu = unmapped.filter(pl.col("patient") == patient).height + bad.filter(pl.col("patient") == patient).height
@@ -157,13 +158,20 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
         limit_h = float(lim[0]); from datetime import timedelta
         fig, runs, meas = draw(s, concept, unit, patient, nu, ver, timedelta(hours=limit_h), mode)
         checks.append((s, runs, fig))
-        cards.append(f"<figure><img src='data:image/png;base64,{png_b64(fig)}'><figcaption>"
-                     f"{legend_text(concept, unit, s, runs, nu, ver, limit_h, row.row(0, named=True))}</figcaption></figure>")
+        n = len(cards) + 1
+        for ext in ("png", "svg", "pdf"):           # image files carry no legend text
+            fig.savefig(outdir / f"figure_{n}.{ext}")
+        plt.close(fig)
+        leg = legend_text(concept, unit, s, runs, nu, ver, limit_h, row.row(0, named=True))
+        legends.append(f"**Figure {n}.** " + html.unescape(leg.replace("<br>", " ").replace("<b>", "").replace("</b>", "")
+                       .replace("<i>", "*").replace("</i>", "*")))
+        cards.append(f"<figure><img src='figure_{n}.png'><figcaption><b>Figure {n}.</b> {leg}</figcaption></figure>")
     page = ("<!doctype html><meta charset=utf-8><title>figures</title><style>body{font:14px sans-serif;max-width:760px;"
             "margin:2em auto}figure{margin:0 0 3em}img{width:100%}figcaption{font-size:13px;line-height:1.4}</style>"
             f"<p>{len(cards)} figures. SYNTHETIC DATA ONLY. Real patient trajectories are shown on screen or printed, never saved as this file.</p>"
             + "".join(cards))
-    Path(out).write_text(page); return out, checks
+    (outdir / "legends.md").write_text("# Figure legends\n\nSYNTHETIC DATA ONLY.\n\n" + "\n\n".join(legends) + "\n")
+    (outdir / "index.html").write_text(page); return str(outdir), checks
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if not a.startswith("--as-at=")]
