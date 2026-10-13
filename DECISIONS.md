@@ -26,7 +26,7 @@ Why `figures` behaves the way it does. Each rule names the test that enforces it
 
 ## Legends
 - **Legends live in `legends.md`, not in the image.** Test: `test_png_has_no_legend_text`.
-- **The image carries one capped footer line only**: synthetic, one patient, read with the bedside, interpretation withheld, figure and render ID. Additions go through the Director. Test: `test_png_has_no_legend_text`.
+- **The image carries one capped footer line only**: synthetic, one patient, read with the bedside, interpretation withheld, figure and render ID. Additions need maintainer sign-off. Test: `test_png_has_no_legend_text`.
 - **Legend shape: hand-back first, then interpretation, then alternative explanations; team stamps on a second, labelled line.** Truncation drops numbers, then kinetics; alternatives and the bedside hand-back never go. Test: **none**.
 - **Interpret the analyte, never the patient.** "Marker plateaued", never "improving". Test: **none**.
 - **"Fell" or "rose" only when the change clears that test's signed reference change value or expected decay** in `limits.csv`. While limits are DRAFT, the legend states values, dates and the gap, with no direction implied. Test: **none**.

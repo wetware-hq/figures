@@ -2,7 +2,7 @@
 
 **Overview.** figures is a local tool that turns one messy paste of hospital results into a clean time series and, for synthetic data, a publication-style chart with a separate legend. It processes everything in memory and keeps nothing. Anything it cannot read with certainty is rejected and listed, never guessed. Agent rules are in [AGENTS.md](AGENTS.md); each design rule and the test that enforces it are in [DECISIONS.md](DECISIONS.md).
 
-> **Not approved for real patient data.** This is a research prototype tested on synthetic data only. Privacy and ethics approval, device-data access and the biometric-data review are pending. Whether it is a medical device under TGA software rules has not been assessed. It is not for clinical decision-making.
+> **Not approved for real patient data.** This is a research prototype tested on synthetic data only. Privacy and ethics approval, device-data access and the biometric-data review are pending. It is not a regulated medical device and is not for clinical decision-making; its regulatory status as medical-device software has not been assessed.
 
 ---
 

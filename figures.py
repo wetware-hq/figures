@@ -160,7 +160,7 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
         withheld = row.row(0, named=True).get("status") != "SIGNED"
         foot = " · ".join(x for x in ["Synthetic data" if str(patient).startswith("SYNTH") else None, "Single-patient chart, identity not verified",
                                        "Read with the bedside", "Interpretation withheld" if withheld else None,
-                                       f"Fig {n}, render {rid}"] if x)   # capped footer: changes go to BIO Director
+                                       f"Fig {n}, render {rid}"] if x)   # capped footer: changes need maintainer sign-off
         fig.text(0.99, 0.005, foot, ha="right", va="bottom", fontsize=5.5, color="0.45")
         for ext in ("png", "svg", "pdf"):           # image carries only the capped footer, no legend
             fig.savefig(outdir / f"figure_{n}.{ext}", metadata={"Description" if ext == "png" else "Title": f"render {rid}"})

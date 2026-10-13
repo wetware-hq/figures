@@ -58,7 +58,7 @@ Hosts on third-party chat (captaincook/Telegram) MUST call `clean` with `text` o
 
 - `pytest -q && python evals/run.py` **MUST** pass before commit.
 - Every new rule **MUST** get a test and a `DECISIONS.md` line naming that test.
-- Changes to footer text, legend wording or chart look **MUST** have BIO Director sign-off and a reader-test run.
+- Changes to footer text, legend wording or chart look **MUST** have maintainer sign-off and a reader-test run.
 - Fixtures **MUST** be synthetic.
 
 ## Out of scope
