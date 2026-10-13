@@ -51,6 +51,8 @@ class Result:
     synthetic: bool = False
     identity_verified: bool = False
     order: str = "oldest-first"
+    unreadable: list = field(default_factory=list)  # (concept_id, time) of rows dropped after a readable time; no text
+    no_time: int = 0                                # rows dropped because the time could not be read
 
     def summary(self):
         """What an agent may see. Real data: counts, units and reject reasons only."""
@@ -141,7 +143,7 @@ def clean(text, synthetic_only=True):
         raise Refused("NOT_PROVABLY_SYNTHETIC", TRIPWIRE)
     if len(pats) > 1:
         raise Refused("MULTIPLE_PATIENTS", "Refused: this paste contains more than one patient.")
-    rejects, rows = [], []
+    rejects, rows, unreadable, no_time = [], [], [], 0
     get = lambda r, k: r[h[k]].strip() if k in h and h[k] < len(r) else ""
     lab2 = MAP.group_by("local_label").len()
     multi = set(lab2.filter(pl.col("len") > 1)["local_label"])
@@ -154,22 +156,22 @@ def clean(text, synthetic_only=True):
             rejects.append((i, "label", "not in mapping")); continue
         t, why = parse_time(get(r, "t"))
         if why:
-            rejects.append((i, "time", why)); continue
+            rejects.append((i, "time", why)); no_time += 1; continue
         if not get(r, "value") and get(r, "status").lower() in ABSENT_STATUS:    # a recorded absence
             val, status, extra = None, "absent", get(r, "gap_reason") or "recorded absence"
         else:
             val, status, extra = parse_value(get(r, "value"))
         if status == "reject":
-            rejects.append((i, "value", extra)); continue
+            rejects.append((i, "value", extra)); unreadable.append((lmap[label]["concept_id"], t)); continue
         unit = get(r, "unit")
         if status != "absent" and not unit:
-            rejects.append((i, "unit", "missing")); continue
+            rejects.append((i, "unit", "missing")); unreadable.append((lmap[label]["concept_id"], t)); continue
         conc = lmap[label]["concept_id"]
         if status != "absent":
             conv = UNITS.filter((pl.col("concept_id") == conc) & (pl.col("from_unit") == unit)) if "concept_id" in UNITS.columns \
                 else UNITS.filter(pl.col("from_unit") == unit)
             if conv.height == 0:
-                rejects.append((i, "unit", f"no conversion for '{unit}'")); continue
+                rejects.append((i, "unit", "no conversion")); unreadable.append((conc, t)); continue
             c = conv.row(0, named=True); val = val * c["factor"]; unit = c["to_unit"]
         rows.append(dict(line=i, local_label=label, concept_id=conc, t=t, value=val, unit=unit,
                          status=status, bound=extra if status == "censored" else None,
@@ -184,7 +186,8 @@ def clean(text, synthetic_only=True):
                                     "value": pl.Float64, "unit": pl.Utf8, "status": pl.Utf8, "bound": pl.Utf8,
                                     "gap_reason": pl.Utf8, "result_status": pl.Utf8, "device": pl.Utf8,
                                     "specimen": pl.Utf8}).sort(["concept_id", "t"])
-    return Result(df, rejects, synthetic, identity_verified=len(pats) == 1, order=order)
+    return Result(df, rejects, synthetic, identity_verified=len(pats) == 1, order=order,
+                  unreadable=unreadable, no_time=no_time)
 
 def _melt(head, body, h):
     li = h["local_label"]

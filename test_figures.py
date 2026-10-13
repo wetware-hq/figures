@@ -107,8 +107,9 @@ def test_other_separators_via_clean(tmp_path, sep):
     r = _run(tmp_path, "\n".join(sep.join(x) for x in rows) + "\n")
     if sep == "|":
         assert r.returncode == 0, r.stderr
-    else:                                  # clean.py does not split on ';': refused, no pasted text
-        assert r.returncode == 2 and r.stderr.splitlines()[0].startswith("Refused:")
+    else:
+        assert r.returncode == 2
+        assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported. Use commas or tabs."
         assert "SYNTH-7735" not in r.stderr and "CRP" not in r.stderr
 
 
@@ -126,3 +127,55 @@ def test_guard_no_row_known(tmp_path):
     assert re.fullmatch(DIAG, r.stderr.splitlines()[1])
     assert "SYNTH-7733" not in r.stderr and "MRN" not in r.stderr
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
+
+
+
+# ---------- round 6: gaps, counts, censored and not-done markers (Educator wording) ----------
+HEAD6 = "patient,test,time,result,unit,status\n"
+
+
+def _gallery(tmp_path, body):
+    r = _run(tmp_path, HEAD6 + body)
+    assert r.returncode == 0, r.stderr
+    return (tmp_path / "gallery" / "index.html").read_text(), (tmp_path / "gallery" / "legends.md").read_text(), r
+
+
+def test_unreadable_row_with_time_becomes_gap_and_counted(tmp_path):
+    page, leg, r = _gallery(tmp_path, "SYNTH-8001,CRP,1937-10-01 08:00,180,mg/L,final\n"
+                                      "SYNTH-8001,CRP,1937-10-02 08:00,Synthjunk,mg/L,final\n"
+                                      "SYNTH-8001,CRP,notatime,99,mg/L,final\n"
+                                      "SYNTH-8001,CRP,1937-10-03 08:00,90,mg/L,final\n")
+    assert "Gap: a result was recorded here but couldn&#x27;t be read." in page or \
+           "Gap: a result was recorded here but couldn't be read." in page
+    assert "2 rows couldn't be read and aren't shown. 1 are marked as gaps; 1 has no readable time." in leg
+    assert "Synthjunk" not in page + leg + r.stdout + r.stderr and "notatime" not in page + leg
+
+
+def test_count_line_omitted_when_zero(tmp_path):
+    page, leg, _ = _gallery(tmp_path, "SYNTH-8002,CRP,1937-10-01 08:00,180,mg/L,final\n"
+                                      "SYNTH-8002,CRP,1937-10-02 08:00,90,mg/L,final\n")
+    assert "couldn't be read" not in leg and "class=count" not in page
+
+
+def test_censored_markers_and_legends(tmp_path):
+    page, leg, _ = _gallery(tmp_path, "SYNTH-8003,CRP,1937-10-01 08:00,180,mg/L,final\n"
+                                      "SYNTH-8003,CRP,1937-10-02 08:00,<5,mg/L,final\n"
+                                      "SYNTH-8003,CRP,1937-10-03 08:00,>300,mg/L,final\n")
+    assert "▼ below the test's limit (<5). The real value is lower than shown." in leg
+    assert "▲ above the test's limit (>300). The real value is higher than shown." in leg
+
+
+def test_not_done_marker_legend(tmp_path):
+    page, leg, _ = _gallery(tmp_path, "SYNTH-8004,CRP,1937-10-01 08:00,180,mg/L,final\n"
+                                      "SYNTH-8004,CRP,1937-10-02 08:00,,mg/L,not done\n"
+                                      "SYNTH-8004,CRP,1937-10-03 08:00,90,mg/L,final\n")
+    assert "○ Not done: no test was done at this time." in leg
+
+
+def test_draw_uses_distinct_markers():
+    from figures import build as b
+    paste = (HEAD6 + "SYNTH-8005,CRP,1937-10-01 08:00,180,mg/L,final\nSYNTH-8005,CRP,1937-10-02 08:00,<5,mg/L,final\n"
+             "SYNTH-8005,CRP,1937-10-03 08:00,,mg/L,missed\nSYNTH-8005,CRP,1937-10-04 08:00,90,mg/L,final\n")
+    _, checks = b(paste, "/tmp/g6.html", as_at="1937-10-16T08:00:00")
+    markers = {l.get_marker() for l in checks[0][2].axes[0].get_lines()}
+    assert {"v", "o"} <= markers
