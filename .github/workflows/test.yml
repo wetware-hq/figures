@@ -10,4 +10,4 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pytest -q
       - run: python evals/run.py
-      - run: python figures.py fixtures/fixture_export.csv --as-at=2026-10-16T08:00:00 && python figures.py --verify gallery
+      - run: python figures.py fixtures/fixture_export.csv --as-at=1937-10-16T08:00:00 && python figures.py --verify gallery

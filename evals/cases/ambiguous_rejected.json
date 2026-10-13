@@ -1,5 +1,5 @@
 {
- "text": "patient\tlabel\ttime\tresult\tunit\tstatus\tsource\nSYNTH-001\tCRP\t03/04/2026\t5\tmg/L\tfinal\tlab\nSYNTH-001\tCRP\t2026-10-01 08:00\t5\tmg/L\tfinal\tlab",
+ "text": "patient\tlabel\ttime\tresult\tunit\tstatus\tsource\nSYNTH-001\tCRP\t03/04/2026\t5\tmg/L\tfinal\tlab\nSYNTH-001\tCRP\t1937-10-01 08:00\t5\tmg/L\tfinal\tlab",
  "expect": {
   "ok": true,
   "n": 1,

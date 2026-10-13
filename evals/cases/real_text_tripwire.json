@@ -1,5 +1,5 @@
 {
- "text": "patient\tlabel\ttime\tresult\tunit\tstatus\tsource\nMRN123\tCRP\t2026-10-01 08:00\t1\tmg/L\tfinal\tlab",
+ "text": "patient\tlabel\ttime\tresult\tunit\tstatus\tsource\nMRN123\tCRP\t1937-10-01 08:00\t1\tmg/L\tfinal\tlab",
  "expect": {
   "error": "NOT_PROVABLY_SYNTHETIC"
  }

@@ -1,5 +1,5 @@
 {
- "text": "patient\tlabel\ttime\tresult\tunit\tstatus\tsource\nSYNTH-001\tCRP\t2026-10-01 08:00\t1\tmg/L\tfinal\tlab\nSYNTH-001\tCRP\t2026-10-02 08:00\t2\tmg/L\tfinal\tlab\nSYNTH-001\tLactate\t2026-10-02 08:00\t2\tmmol/L\tfinal\tlab\nSYNTH-001\tLactate\t2026-10-01 08:00\t1\tmmol/L\tfinal\tlab",
+ "text": "patient\tlabel\ttime\tresult\tunit\tstatus\tsource\nSYNTH-001\tCRP\t1937-10-01 08:00\t1\tmg/L\tfinal\tlab\nSYNTH-001\tCRP\t1937-10-02 08:00\t2\tmg/L\tfinal\tlab\nSYNTH-001\tLactate\t1937-10-02 08:00\t2\tmmol/L\tfinal\tlab\nSYNTH-001\tLactate\t1937-10-01 08:00\t1\tmmol/L\tfinal\tlab",
  "expect": {
   "error": "MIXED_TIME_ORDER"
  }

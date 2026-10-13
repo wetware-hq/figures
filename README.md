@@ -50,7 +50,7 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 pytest -q && python evals/run.py
 python clean.py < fixtures/fixture_export.csv
-python figures.py fixtures/fixture_export.csv --as-at=2026-10-16T08:00:00
+python figures.py fixtures/fixture_export.csv --as-at=1937-10-16T08:00:00
 python server.py
 ```
 
