@@ -129,12 +129,16 @@ def parse_value(s):
     return None, "reject", "not a number, a censored value or a known lab comment"
 
 # ---------- cleaning ----------
+def file_lines(text):
+    """Spreadsheet-style row numbers: the file's own line numbers, header = row 1 (blank lines still count)."""
+    return [n for n, l in enumerate(text.splitlines(), 1) if l.strip()]
+
 def known(cell):
     k = cell.strip().lower()
     return next((canon for canon, names in ALIASES.items() if k in names), None)
 
 def layout_refused(row, col):
-    where = f"row {row}, column {col}" if row else f"the header row, column {col}"
+    where = f"row {row or 1}, column {col}"
     return Refused("LAYOUT", f"Refused: {where} doesn't match the expected layout.", row, col)
 
 def strict_header(head, wide=False):
@@ -149,11 +153,12 @@ def strict_header(head, wide=False):
                 raise layout_refused(None, j)
             seen[canon] = j
 
-def swapped_columns(h, body):
+def swapped_columns(h, body, rows_at=None):
     """Catch swapped columns, naming row and column: time and value swapped (a number in the time column, a time in
     the value column), or value and unit swapped (no digit in the value column, a plain number in the unit column)."""
     cell = lambda r, k: r[h[k]].strip() if k in h and h[k] < len(r) else ""
-    for n, r in enumerate(body, 1):
+    for k, r in enumerate(body, 2):
+        n = rows_at[k - 1] if rows_at and k - 1 < len(rows_at) else k
         tc, vc, uc = cell(r, "t"), cell(r, "value"), cell(r, "unit")
         if parse_time(tc)[1] and parse_time(vc)[0] is not None:
             raise layout_refused(n, h["t"] + 1)
@@ -175,7 +180,8 @@ def clean(text, synthetic_only=True, _melted=False):
     missing = [c for c in ("local_label", "t", "value") if c not in h]
     if missing:
         raise Refused("NO_REQUIRED_COLUMN", f"Refused: no column recognised for {', '.join(missing)}.")
-    swapped_columns(h, body)
+    rows_at = None if _melted else file_lines(text)
+    swapped_columns(h, body, rows_at)
     pats = {r[h["patient"]].strip() for r in body if "patient" in h and len(r) > h["patient"] and r[h["patient"]].strip()}
     synthetic = bool(pats) and all(SYNTH.match(p) for p in pats)
     if synthetic_only and not synthetic:
@@ -187,7 +193,8 @@ def clean(text, synthetic_only=True, _melted=False):
     lab2 = MAP.group_by("local_label").len()
     multi = set(lab2.filter(pl.col("len") > 1)["local_label"])
     lmap = {r["local_label"]: r for r in MAP.to_dicts()}
-    for i, r in enumerate(body, start=2):
+    for k, r in enumerate(body, start=2):
+        i = rows_at[k - 1] if rows_at and k - 1 < len(rows_at) else k
         label = get(r, "local_label")
         if label in multi:
             rejects.append((i, "label", "matches more than one concept")); continue

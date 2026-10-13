@@ -48,13 +48,14 @@ def load(text):
     nonblank = [l for l in text.splitlines() if l.strip()]
     first = nonblank[0] if nonblank else ""
     if ";" in first and not any(d in first for d in ("\t", ",", "|")):
-        raise SemicolonPaste(next((n for n, l in enumerate(nonblank[1:], 1) if ";" in l), None))
+        all_lines = text.splitlines()
+        raise SemicolonPaste(next((n for n in cleaner.file_lines(text)[1:] if ";" in all_lines[n - 1]), None))
     res = cleaner.clean(text)                       # synthetic only; refuses anything else
     table = cleaner.split(text); h = cleaner.header_map(table[0])
     pats = [r[h["patient"]].strip() for r in table[1:] if "patient" in h and len(r) > h["patient"] and r[h["patient"]].strip()]
     ats = [r[h["as_at"]].strip() for r in table[1:] if "as_at" in h and len(r) > h["as_at"] and r[h["as_at"]].strip()]
     if res.rows.height == 0:
-        raise NoRows(min((ln for ln, _, _ in res.rejects), default=1) - 1 if res.rejects else None)
+        raise NoRows(min((ln for ln, _, _ in res.rejects), default=1) if res.rejects else None)
     d = res.rows.with_columns(pl.lit(pats[0]).alias("patient"), pl.col("unit").alias("map_unit"),
                               pl.col("value").alias("v"))
     if res.unreadable:                               # dropped rows with a readable time: a gap at their own time
@@ -66,7 +67,7 @@ def load(text):
         d = pl.concat([d, gaps], how="diagonal_relaxed").sort(["concept_id", "t"])
     n_unmapped = sum(1 for _, f, _ in res.rejects if f in ("label", "unit"))
     global COUNT_LINE
-    label_rows = sorted(ln - 1 for ln, f, _ in res.rejects if f == "label")
+    label_rows = sorted(ln for ln, f, _ in res.rejects if f == "label")
     COUNT_LINE = count_line(len(res.rejects), len(res.unreadable), res.no_time, label_rows)
     return d, n_unmapped, pats[0], (max(ats) if ats else None)
 
@@ -220,7 +221,7 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
         from datetime import timedelta
         if lim.is_empty():                           # no normal range on file: charted without one, never shown as normal
             limit_h = None
-            first_row = int(s["line"].drop_nulls().min()) - 1 if "line" in s.columns and s["line"].drop_nulls().len() else 1
+            first_row = int(s["line"].drop_nulls().min()) if "line" in s.columns and s["line"].drop_nulls().len() else 1
             NOTICES.append(NO_RANGE_FLAG.format(n=first_row))
         else:
             limit_h = float(lim[0])
@@ -265,14 +266,16 @@ LAYOUT_ROW = "Refused: row {n} doesn't match the expected layout."
 LAYOUT_ANY = "Refused: no rows in the expected layout were found. Nothing was saved."
 
 def bad_row(text, e=None):
-    """First data row (1 = first row under the header) that breaks the layout, using clean.py's reader; None if unknown.
+    """First row (spreadsheet style: the file's own line number, header = row 1) that breaks the layout, using clean.py's reader; None if unknown.
     Never returns row text."""
     if isinstance(e, NoRows): return e.row
     try:
         table = cleaner.split(text)
         head, h = table[0], cleaner.header_map(table[0])
         if not {"local_label", "t", "value"} <= set(h): return None
-        for n, r in enumerate(table[1:], 1):
+        at = cleaner.file_lines(text)
+        for k, r in enumerate(table[1:], 1):
+            n = at[k] if k < len(at) else k + 1
             if len(r) != len(head): return n
             if cleaner.parse_time(r[h["t"]])[1]: return n
     except Exception:

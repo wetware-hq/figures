@@ -46,7 +46,7 @@ Agents call `clean`, `rejects` and `render` through `server.py`, a local Model C
 
 ## Pastes and refusals
 
-Every paste goes through `clean.py`. Comma, tab, pipe, space and wide layouts are accepted. Pipe and wide pastes are accepted only when every column matches one known header. Anything else is refused, giving the row and column only. A header problem says "the header row". Swapped time and value columns are caught.
+Every paste goes through `clean.py`. Comma, tab, pipe, space and wide layouts are accepted. Pipe and wide pastes are accepted only when every column matches one known header. Anything else is refused, giving the row and column only. Row numbers are spreadsheet style: the file's own line numbers, with the header as row 1, so the first data row is row 2 (blank lines still count). A header problem says "row 1". Swapped time and value columns are caught.
 
 - Semicolons: "Refused: semicolon-separated pastes aren't supported. Use commas or tabs." The refusal gives the first row with a semicolon.
 - No usable rows: "Refused: no rows in the expected layout were found. Nothing was saved."

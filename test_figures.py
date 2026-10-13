@@ -83,7 +83,7 @@ def test_guard_bad_rows_mrn_header_no_echo(tmp_path):
     r = _run(tmp_path, paste)
     assert r.returncode == 2 and r.stdout == ""
     first, diag = r.stderr.strip().splitlines()
-    assert first == "Refused: row 1 doesn't match the expected layout."
+    assert first == "Refused: row 2 doesn't match the expected layout."
     assert re.fullmatch(DIAG, diag)
     for tok in TOKS:
         assert tok not in r.stdout + r.stderr, tok
@@ -109,14 +109,14 @@ def test_other_separators_via_clean(tmp_path, sep):
         assert r.returncode == 0, r.stderr
     else:
         assert r.returncode == 2
-        assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported (row 1). Use commas or tabs."
+        assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported (row 2). Use commas or tabs."
         assert "SYNTH-7735" not in r.stderr and "CRP" not in r.stderr
 
 
 def test_guard_short_row(tmp_path):
     paste = ("MRN,local_label,t,value,unit\nSYNTH-7732,CRP,notatime,5,mg/L\nSYNTH-7732,CRP\n")
     r = _run(tmp_path, paste)
-    assert r.returncode != 0 and r.stderr.splitlines()[0] == "Refused: row 1 doesn't match the expected layout."
+    assert r.returncode != 0 and r.stderr.splitlines()[0] == "Refused: row 2 doesn't match the expected layout."
     assert "SYNTH-7732" not in r.stderr and "MRN" not in r.stderr
 
 
@@ -198,7 +198,7 @@ def test_unrecognised_test_name_counted_with_row(tmp_path):
     page, leg, r = _gallery(tmp_path, "SYNTH-8101,CRP,1937-10-01 08:00,180,mg/L,final\n"
                                       "SYNTH-8101,Synthwidget,1937-10-02 08:00,5,mg/L,final\n"
                                       "SYNTH-8101,CRP,1937-10-03 08:00,90,mg/L,final\n")
-    assert "1 row couldn't be read and isn't shown: 1 has a test name we didn't recognise (row 2)." in leg
+    assert "1 row couldn't be read and isn't shown: 1 has a test name we didn't recognise (row 3)." in leg
     assert "Synthwidget" not in page + leg + r.stdout + r.stderr
 
 
@@ -212,7 +212,7 @@ def test_not_done_cross_marker(tmp_path):
 def test_test_without_normal_range_charted_and_flagged(tmp_path):
     page, leg, r = _gallery(tmp_path, "SYNTH-8103,Lactate,1937-10-01 08:00,2.1,mmol/L,final\n"
                                       "SYNTH-8103,Lactate,1937-10-02 08:00,1.4,mmol/L,final\n")
-    flag = "Flag: no normal range on file for the test on row 1. It's charted without one."
+    flag = "Flag: no normal range on file for the test on row 2. It's charted without one."
     assert flag in r.stderr.splitlines()
     assert "figure_1.png" in page and "Interpretation withheld" in leg
 
@@ -220,20 +220,20 @@ def test_test_without_normal_range_charted_and_flagged(tmp_path):
 def test_pipe_paste_unknown_column_refused_row_and_column(tmp_path):
     r = _run(tmp_path, "patient|test|time|result|Synthextra\nSYNTH-8104|CRP|1937-10-01 08:00|180|x\n")
     assert r.returncode == 2
-    assert r.stderr.splitlines()[0] == "Refused: the header row, column 5 doesn't match the expected layout."
+    assert r.stderr.splitlines()[0] == "Refused: row 1, column 5 doesn't match the expected layout."
     assert "Synthextra" not in r.stderr and "SYNTH-8104" not in r.stderr
 
 
 def test_pipe_paste_ambiguous_column_refused(tmp_path):
     r = _run(tmp_path, "patient|test|time|result|value\nSYNTH-8105|CRP|1937-10-01 08:00|180|90\n")
     assert r.returncode == 2
-    assert r.stderr.splitlines()[0] == "Refused: the header row, column 5 doesn't match the expected layout."
+    assert r.stderr.splitlines()[0] == "Refused: row 1, column 5 doesn't match the expected layout."
 
 
 def test_wide_paste_non_time_column_refused(tmp_path):
     r = _run(tmp_path, "patient\ttest\tunit\t1937-10-01 08:00\tSynthcol\nSYNTH-8106\tCRP\tmg/L\t180\t90\n")
     assert r.returncode == 2
-    assert r.stderr.splitlines()[0] == "Refused: the header row, column 5 doesn't match the expected layout."
+    assert r.stderr.splitlines()[0] == "Refused: row 1, column 5 doesn't match the expected layout."
     assert "Synthcol" not in r.stderr
 
 
@@ -244,13 +244,13 @@ def test_swapped_time_and_value_columns_refused(tmp_path, sep):
             ["SYNTH-8107", "CRP", "90", "1937-10-02 08:00", "mg/L"]]
     r = _run(tmp_path, "\n".join(sep.join(x) for x in rows) + "\n")
     assert r.returncode == 2
-    assert r.stderr.splitlines()[0] == "Refused: row 1, column 3 doesn't match the expected layout."
+    assert r.stderr.splitlines()[0] == "Refused: row 2, column 3 doesn't match the expected layout."
     assert "SYNTH-8107" not in r.stderr and list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
 
 
 def test_semicolon_refusal_names_row(tmp_path):
     r = _run(tmp_path, "patient;test;time;result\nSYNTH-8108;CRP;1937-10-01 08:00;180\n")
-    assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported (row 1). Use commas or tabs."
+    assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported (row 2). Use commas or tabs."
 
 
 # ---------- round 8 ----------
@@ -258,7 +258,7 @@ def test_value_and_unit_swapped_refused_with_row_and_column(tmp_path):
     r = _run(tmp_path, "patient,local_label,t,value,unit\nSYNTH-8201,CRP,1937-01-05T06:00:00,mg/L,54\n"
                        "SYNTH-8201,CRP,1937-01-06T06:00:00,mg/L,38\n")
     assert r.returncode == 2
-    assert r.stderr.splitlines()[0] == "Refused: row 1, column 4 doesn't match the expected layout."
+    assert r.stderr.splitlines()[0] == "Refused: row 2, column 4 doesn't match the expected layout."
     assert "Refused/LAYOUT" in r.stderr and "SYNTH-8201" not in r.stderr
 
 
@@ -269,3 +269,11 @@ def test_not_done_in_value_column_is_cross_not_gap(tmp_path):
     leg = (tmp_path / "gallery" / "legends.md").read_text()
     assert "✕ Not done: no test was done at this time." in leg and "couldn't be read" not in leg
     assert "marked as a gap" not in leg and "marked as gaps" not in leg
+
+
+def test_r10_rows_are_spreadsheet_lines_blank_lines_count(tmp_path):
+    # header = row 1; a blank line still counts as a spreadsheet row
+    page, leg, r = _gallery(tmp_path, "SYNTH-8121,CRP,1937-10-01 08:00,180,mg/L,final\n\n"
+                                      "SYNTH-8121,Synthwidget,1937-10-02 08:00,5,mg/L,final\n"
+                                      "SYNTH-8121,CRP,1937-10-03 08:00,90,mg/L,final\n")
+    assert "recognise (row 4)." in leg
