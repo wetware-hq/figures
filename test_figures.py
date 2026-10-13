@@ -93,5 +93,5 @@ def test_guard_short_row(tmp_path):
 def test_guard_no_row_known(tmp_path):
     r = _run(tmp_path, "MRN SYNTH-7733 only one line\n")
     assert r.returncode != 0 and r.stdout == ""
-    assert r.stderr.strip() == "Refused: the paste doesn't match the expected layout."
+    assert r.stderr.strip() == "Refused: no rows in the expected layout were found. Nothing was saved."
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]

@@ -187,7 +187,7 @@ def verify(outdir):
     return True
 
 LAYOUT_ROW = "Refused: row {n} doesn't match the expected layout."
-LAYOUT_ANY = "Refused: the paste doesn't match the expected layout."
+LAYOUT_ANY = "Refused: no rows in the expected layout were found. Nothing was saved."
 
 def bad_row(text):
     """Best guess at the first data row (1 = first row under the header) that breaks the layout; None if unknown.
