@@ -82,9 +82,10 @@ def test_guard_bad_rows_mrn_header_no_echo(tmp_path):
              "SYNTH-7731,CRP,1937-10-02T08:00:00,Synthvalue,mg/L,lab:core,assay,measured,\n")
     r = _run(tmp_path, paste)
     assert r.returncode == 2 and r.stdout == ""
-    first, diag = r.stderr.strip().splitlines()
+    assert len(r.stderr.strip().splitlines()) == 1          # no internal diagnostics
+    first = r.stderr.strip()
     assert first == "Refused: no rows in the expected layout were found. Nothing was saved."
-    assert re.fullmatch(DIAG, diag)
+    assert not re.search(DIAG, r.stderr) and "Diagnostic" not in r.stderr
     for tok in TOKS:
         assert tok not in r.stdout + r.stderr, tok
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
@@ -124,7 +125,7 @@ def test_guard_no_row_known(tmp_path):
     r = _run(tmp_path, "MRN SYNTH-7733 only one line\n")
     assert r.returncode != 0 and r.stdout == ""
     assert r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
-    assert re.fullmatch(DIAG, r.stderr.splitlines()[1])
+    assert r.stderr.splitlines()[1:] == []
     assert "SYNTH-7733" not in r.stderr and "MRN" not in r.stderr
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
 
@@ -259,7 +260,7 @@ def test_value_and_unit_swapped_refused_with_row_and_column(tmp_path):
                        "SYNTH-8201,CRP,1937-01-06T06:00:00,mg/L,38\n")
     assert r.returncode == 2
     assert r.stderr.splitlines()[0] == "Refused: row 2, column 4 doesn't match the expected layout."
-    assert "Refused/LAYOUT" in r.stderr and "SYNTH-8201" not in r.stderr
+    assert "Refused/LAYOUT" not in r.stderr and "SYNTH-8201" not in r.stderr
 
 
 def test_not_done_in_value_column_is_cross_not_gap(tmp_path):
@@ -309,3 +310,13 @@ def test_r10_legend_source_never_blank(tmp_path):
     leg = (tmp_path / "gallery" / "legends.md").read_text()
     assert "source ," not in leg and "source source" not in leg
     assert "source not given," in leg
+
+
+@pytest.mark.parametrize("paste", ["MRN SYNTH-8125 only one line\n",
+                                   "patient;test;time;result\nSYNTH-8125;CRP;1937-10-01 08:00;180\n",
+                                   "patient|test|time|result|wibble\nSYNTH-8125|CRP|1937-10-01 08:00|180|x\n",
+                                   "patient,test,time,result,unit\nSYNTH-8125,CRP,180,1937-10-01 08:00,mg/L\n"])
+def test_r10_refusals_print_no_internal_diagnostics(tmp_path, paste):
+    r = _run(tmp_path, paste)
+    assert r.returncode == 2 and len(r.stderr.strip().splitlines()) == 1
+    assert "Diagnostic" not in r.stderr and ".py" not in r.stderr and "Traceback" not in r.stderr
