@@ -94,7 +94,10 @@ def synopsis(s, runs, row, unit):
     v0, vl, t0, tl = pts[0]["v"], pts[-1]["v"], pts[0]["t"], pts[-1]["t"]
     nums = f"{v0:g} to {vl:g} {unit} ({t0:%d %b} to {tl:%d %b})"
     if row.get("status") != "SIGNED":
-        return f"{hand} Went from {nums}. Interpretation withheld until test limits are signed off."
+        gap_h = (tl - pts[-2]["t"]).total_seconds() / 3600
+        un = sum((b - a).days + 1 for a, b in absences(s))
+        return (f"{hand} {v0:g} {unit} on {t0:%d %b}; latest {vl:g} {unit} on {tl:%d %b}, {gap_h:.0f} h after the previous result"
+                + (f", with {un} days unmeasured" if un else "") + ". Interpretation withheld until test limits are signed off.")
     # signed path: trend words only when the signed threshold allows them
     hl = row.get("expected_half_life_h"); fall = row.get("rcv_fall_pct"); rise = row.get("rcv_rise_pct")
     ch = (vl - v0) / v0 * 100 if v0 else 0
