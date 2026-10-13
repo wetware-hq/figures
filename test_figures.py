@@ -62,7 +62,7 @@ def test_mismatched_pair_refused():
 
 
 # ---------- top-level guard: any error -> one fixed line, row number only ----------
-import subprocess, sys as _sys
+import subprocess, re, sys as _sys
 _FIG = str(Path(__file__).parent / "figures.py")
 
 
@@ -77,8 +77,10 @@ def test_guard_bad_row_mrn_header_no_echo(tmp_path):
              "SYNTH-7731,CRP,notatime,Synthvalue,mg/L,lab:core,assay,measured,\n")
     r = _run(tmp_path, paste)
     assert r.returncode != 0 and r.stdout == ""
-    assert r.stderr.strip() == "Refused: row 2 doesn't match the expected layout."
-    for tok in ("MRN", "SYNTH-7731", "CRP", "notatime", "Synthvalue", "mg/L", "Traceback", "Error", "local_label"):
+    first, diag = r.stderr.strip().splitlines()
+    assert first == "Refused: row 2 doesn't match the expected layout."
+    assert re.fullmatch(r"Diagnostic: [A-Za-z_]\w* at figures\.py:(\d+|unknown)", diag)
+    for tok in ("MRN", "SYNTH-7731", "CRP", "notatime", "Synthvalue", "mg/L", "Traceback", "local_label"):
         assert tok not in r.stdout + r.stderr, tok
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
 
@@ -86,12 +88,14 @@ def test_guard_bad_row_mrn_header_no_echo(tmp_path):
 def test_guard_short_row(tmp_path):
     paste = ("MRN,local_label,t,value\nSYNTH-7732,CRP,1937-10-01T08:00:00,5\nSYNTH-7732,CRP\n")
     r = _run(tmp_path, paste)
-    assert r.returncode != 0 and r.stderr.strip() == "Refused: row 2 doesn't match the expected layout."
+    assert r.returncode != 0 and r.stderr.splitlines()[0] == "Refused: row 2 doesn't match the expected layout."
     assert "SYNTH-7732" not in r.stderr and "MRN" not in r.stderr
 
 
 def test_guard_no_row_known(tmp_path):
     r = _run(tmp_path, "MRN SYNTH-7733 only one line\n")
     assert r.returncode != 0 and r.stdout == ""
-    assert r.stderr.strip() == "Refused: no rows in the expected layout were found. Nothing was saved."
+    assert r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
+    assert re.fullmatch(r"Diagnostic: \w+ at figures\.py:(\d+|unknown)", r.stderr.splitlines()[1])
+    assert "SYNTH-7733" not in r.stderr and "MRN" not in r.stderr
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]

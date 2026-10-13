@@ -208,6 +208,13 @@ def bad_row(text):
         return None
     return None
 
+def diagnostic(e):
+    """Error type name and the deepest figures.py line it passed through. Never the error message (it may hold pasted text)."""
+    import traceback
+    here = [f for f in traceback.extract_tb(e.__traceback__) if Path(f.filename).name == "figures.py"]
+    loc = f"figures.py:{here[-1].lineno}" if here else "figures.py:unknown"
+    return f"Diagnostic: {type(e).__name__} at {loc}"
+
 def main(argv):
     """One top-level guard: any failure becomes one fixed line (row number only), exit 2, nothing written."""
     out = Path("gallery.html").with_suffix("")
@@ -225,6 +232,7 @@ def main(argv):
             import shutil; shutil.rmtree(out, ignore_errors=True)
         n = bad_row(text)
         sys.stderr.write((LAYOUT_ROW.format(n=n) if n else LAYOUT_ANY) + "\n")
+        sys.stderr.write(diagnostic(e) + "\n")
         return 2
     print(result)
     return 0
