@@ -173,11 +173,17 @@ def synopsis(s, runs, row, unit):
         if len(line) <= MAX_LINE1: return line   # numbers go first, then kinetics; alternatives + hand-back never go
     return line
 
+SOURCE_NOT_GIVEN = "source not given"   # no signed wording in README/DECISIONS; spec wording
+
+def source_text(s):
+    src = ", ".join(sorted(x for x in set(s["device"].drop_nulls()) if x.strip()))
+    return f"source {src}" if src else SOURCE_NOT_GIVEN
+
 def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h, row):
     rec = len(absences(s, not_done=False)); inferred = max(len(runs) - 1 - len(absences(s)), 0)
     e = html.escape
     return (f"<b>{e(synopsis(s, runs, row, unit))}</b><br>"
-            f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), single patient not verified, {e(frequency(s))}, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
+            f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), single patient not verified, {e(frequency(s))}, {e(source_text(s))}, admission baseline, {rec} gap recorded, {inferred} inferred "
             + (f"(&gt;{limit_h:g} h)" if limit_h else "(no normal range or gap limit on file)")
             + f", {n_unmapped} results unmapped, limits {e(row.get('status','none on file')).lower()}, mapping {mapping_ver}, drawn {DRAWN:%d %b %Y %H:%M}.")
 

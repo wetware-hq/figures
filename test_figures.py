@@ -300,3 +300,12 @@ def test_r10_not_done_never_a_gap_any_column_order(tmp_path, word, order):
     leg = (tmp_path / "gallery" / "legends.md").read_text()
     assert "0 gap recorded" in leg and "1 gap recorded" not in leg
     assert "Not done" in leg
+
+
+def test_r10_legend_source_never_blank(tmp_path):
+    paste = "patient\ttest\ttime\tresult\tunit\nSYNTH-8124\tCRP\t1937-10-01 08:00\t180\tmg/L\nSYNTH-8124\tCRP\t1937-10-02 08:00\t90\tmg/L\n"
+    r = _run(tmp_path, paste)
+    assert r.returncode == 0, r.stderr
+    leg = (tmp_path / "gallery" / "legends.md").read_text()
+    assert "source ," not in leg and "source source" not in leg
+    assert "source not given," in leg
