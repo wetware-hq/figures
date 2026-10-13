@@ -23,8 +23,8 @@ class SemicolonPaste(Exception):
 SEMICOLON_REFUSED = "Refused: semicolon-separated pastes aren't supported. Use commas or tabs."
 SEMICOLON_ROW = "Refused: semicolon-separated pastes aren't supported (row {n}). Use commas or tabs."
 GAP_LEGEND = "Gap: a result was recorded here but couldn't be read."
-BELOW_LEGEND = "▼ below the test's limit (<{x}). The real value is lower than shown."
-ABOVE_LEGEND = "▲ above the test's limit (>{x}). The real value is higher than shown."
+BELOW_LEGEND = "▼ below the test's limit (<{x}). The real value is lower than shown. (row {n})"
+ABOVE_LEGEND = "▲ above the test's limit (>{x}). The real value is higher than shown. (row {n})"
 NOT_DONE_LEGEND = "✕ Not done: no test was done at this time."
 NO_RANGE_FLAG = "Flag: no normal range on file for the test on row {n}. It's charted without one."
 NOT_DONE = {"missed", "not done", "not collected"}
@@ -79,6 +79,9 @@ def segments(s, limit):
     s = s.sort("t")
     runs, cur, last = [], [], None
     for row in s.iter_rows(named=True):
+        if row["status"] == "censored":
+            last = row["t"] if cur else last         # a marked limit: a result was taken (no gap), but never a trend point
+            continue
         if row["status"] != "measured":
             if cur: runs.append(cur); cur = []
             continue
@@ -134,7 +137,10 @@ def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward")
         ax.annotate(f"last measured {last['t']:%d %b %H:%M},\n{age:.0f} h before {ANCHOR['label']}",
                     (last["t"], last["v"]), xytext=(4, 30), textcoords="offset points", ha="right", arrowprops=dict(arrowstyle="-", color="0.4", lw=0.6), fontsize=6.5)
     for p in s.filter(pl.col("status") == "censored").iter_rows(named=True):
-        ax.plot([p["t"]], [p["v"]], marker="v" if p.get("bound", "").startswith("<") else "^", color="C3", ls="none", zorder=4)
+        below = str(p.get("bound") or "").startswith("<")    # a marked limit, not a point: bar at the limit + arrow
+        ax.plot([p["t"]], [p["v"]], marker="_", markersize=12, mew=1.4, color="C3", ls="none", zorder=4)
+        ax.plot([p["t"]], [p["v"]], marker="v" if below else "^", markersize=5, color="C3", ls="none", zorder=4,
+                markevery=None, transform=ax.transData)
     tr = ax.get_xaxis_transform()
     for p in s.filter(pl.col("status") == "unreadable").iter_rows(named=True):
         ax.axvline(p["t"], color="0.5", ls=":", lw=0.8)
@@ -193,7 +199,8 @@ def marker_legend(s):
     if s.filter(pl.col("status") == "unreadable").height: out.append(GAP_LEGEND)
     cen = s.filter(pl.col("status") == "censored")
     for p in cen.iter_rows(named=True):
-        line = (BELOW_LEGEND if str(p.get("bound", "")).startswith("<") else ABOVE_LEGEND).format(x=f"{p['v']:g}")
+        line = (BELOW_LEGEND if str(p.get("bound") or "").startswith("<") else ABOVE_LEGEND).format(
+            x=f"{p['v']:g}", n=p.get("line") or "not known")
         if line not in out: out.append(line)
     if s.filter((pl.col("status") == "absent") & pl.col("result_status").is_in(list(NOT_DONE))).height: out.append(NOT_DONE_LEGEND)
     return "".join(f"<br>{html.escape(x)}" for x in out)

@@ -162,8 +162,8 @@ def test_censored_markers_and_legends(tmp_path):
     page, leg, _ = _gallery(tmp_path, "SYNTH-8003,CRP,1937-10-01 08:00,180,mg/L,final\n"
                                       "SYNTH-8003,CRP,1937-10-02 08:00,<5,mg/L,final\n"
                                       "SYNTH-8003,CRP,1937-10-03 08:00,>300,mg/L,final\n")
-    assert "▼ below the test's limit (<5). The real value is lower than shown." in leg
-    assert "▲ above the test's limit (>300). The real value is higher than shown." in leg
+    assert "▼ below the test's limit (<5). The real value is lower than shown. (row 3)" in leg
+    assert "▲ above the test's limit (>300). The real value is higher than shown. (row 4)" in leg
 
 
 def test_not_done_marker_legend(tmp_path):
@@ -337,3 +337,25 @@ def test_r10_limit_values_with_unmapped_style_units_chart(tmp_path):
     assert "Troponin (ng/L), single patient not verified, 2 results" in leg
     assert "1 gap recorded" not in leg and "0 results unmapped" in leg
     assert "(>90)" in leg and "(<5)" in leg
+
+
+def test_r11_censored_are_marked_limits_not_trend_points(tmp_path):
+    page, leg, r = _gallery(tmp_path, "SYNTH-8131,CRP,1937-10-01 08:00,180,mg/L,final\n"
+                                      "SYNTH-8131,CRP,1937-10-02 08:00,>300,mg/L,final\n"
+                                      "SYNTH-8131,CRP,1937-10-03 08:00,90,mg/L,final\n"
+                                      "SYNTH-8131,CRP,1937-10-04 08:00,<5,mg/L,final\n")
+    # trend runs from the measured values only: 180 -> 90; the limits never become the first/last value
+    assert "180 mg/L on 01 Oct; latest 90 mg/L on 03 Oct" in leg
+    assert "300 mg/L" not in leg.split("*For the clinical team")[0] and " 5 mg/L" not in leg.split("*For")[0]
+    assert "0 gap recorded, 0 inferred" in leg                  # a limit never splits the line into a gap
+    assert "▲ above the test's limit (>300). The real value is higher than shown. (row 3)" in leg
+    assert "▼ below the test's limit (<5). The real value is lower than shown. (row 5)" in leg
+
+
+def test_r11_censored_excluded_from_runs_unit():
+    import polars as pl, datetime as dt
+    import figures as F
+    s = pl.DataFrame({"t": [dt.datetime(1937, 10, d, 8) for d in (1, 2, 3)], "v": [10.0, 300.0, 20.0],
+                      "status": ["measured", "censored", "measured"]})
+    runs = F.segments(s, None)
+    assert len(runs) == 1 and [p["v"] for p in runs[0]] == [10.0, 20.0]

@@ -58,10 +58,12 @@ A refusal shows the row number, the error type and the code line. It never shows
 
 | Marker | Legend |
 |---|---|
-| ▼ | "▼ below the test's limit (<5). The real value is lower than shown." |
-| ▲ | "▲ above the test's limit (>90). The real value is higher than shown." |
+| ▼ | "▼ below the test's limit (<5). The real value is lower than shown. (row N)" |
+| ▲ | "▲ above the test's limit (>90). The real value is higher than shown. (row N)" |
 | gap | "Gap: a result was recorded here but couldn't be read." |
 | ✕ | "✕ Not done: no test was done at this time." |
+
+Censored values (`<X`, `>X`) are drawn as marked limits (a bar at the limit with an arrow), never as points. They are left out of trend lines, the first/latest values and any normal-range comparison, and they don't split a line into a gap.
 
 A count line sits above the chart, for example: "3 rows couldn't be read and aren't shown: 1 is marked as a gap, 1 has no readable time, 1 has a test name we didn't recognise (row 7)." Each part appears only when it isn't zero, singular or plural matches the number, and the parts add up to the total.
 

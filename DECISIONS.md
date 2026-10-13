@@ -46,6 +46,7 @@ Why `figures` behaves the way it does. Each rule names the test that enforces it
 - On real data agents see counts, units and reject reasons only. Test: `test_real_data_summary_has_no_values_or_times`.
 - Real data is never written to disk. Test: `test_real_data_never_written_to_disk` (output only; temp, cache and spool for render are still untested).
 - Censored values keep their bound. Test: `test_censored_keeps_bound`.
+- Censored values are marked limits, not points: excluded from trends and range comparisons; legend names the row. Tests: `test_r11_censored_are_marked_limits_not_trend_points`, `test_r11_censored_excluded_from_runs_unit`.
 - Lab comments become absences with a reason. Test: `test_lab_comment_becomes_absence_with_reason`.
 - Flags stripped; reference ranges never taken as results. Test: `test_flag_and_range_stripped_never_taken_as_result`.
 - Amended: keep the final; unclear, reject both. Same time on two sources is two series. Tests: `test_amended_keeps_final_unclear_rejects_both`, `test_same_time_two_sources_are_two_series_not_a_refusal`.
