@@ -67,7 +67,7 @@ def load(text):
         d = pl.concat([d, gaps], how="diagonal_relaxed").sort(["concept_id", "t"])
     n_unmapped = sum(1 for _, f, _ in res.rejects if f in ("label", "unit"))
     global COUNT_LINE
-    label_rows = sorted(ln for ln, f, _ in res.rejects if f == "label")
+    label_rows = sorted({ln for ln, f, _ in res.rejects if f == "label"})   # original paste rows (wide: one per row)
     COUNT_LINE = count_line(len(res.rejects), len(res.unreadable), res.no_time, label_rows)
     return d, n_unmapped, pats[0], (max(ats) if ats else None)
 

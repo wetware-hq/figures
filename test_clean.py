@@ -93,3 +93,14 @@ def test_unit_conversion_and_fixture_roundtrip():
     assert r.rows["value"][0] == pytest.approx(39) and r.rows["unit"][0] == "mg/L"
     fx = clean((Path(__file__).parent / "fixtures" / "fixture_export.csv").read_text())
     assert fx.synthetic and fx.rows.height > 0
+
+
+def test_r11_wide_paste_rows_are_original_paste_rows():
+    r = clean("patient\tlabel\tunit\t1937-10-01 08:00\t1937-10-02 08:00\n"
+              "SYNTH-001\tCRP\tmg/L\t180\t140\n\n"
+              "SYNTH-001\tLactate\tmmol/L\t2.1\t1.4\n"
+              "SYNTH-001\tSynthwidget\tmg/L\t5\t6\n")
+    lines = dict(zip(zip(r.rows["concept_id"].to_list(), r.rows["value"].to_list()), r.rows["line"].to_list()))
+    assert lines[("crp", 180.0)] == 2 and lines[("crp", 140.0)] == 2
+    assert lines[("lactate", 2.1)] == 4 and lines[("lactate", 1.4)] == 4     # blank line 3 still counts
+    assert {ln for ln, f, _ in r.rejects if f == "label"} == {5}

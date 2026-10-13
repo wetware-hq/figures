@@ -359,3 +359,27 @@ def test_r11_censored_excluded_from_runs_unit():
                       "status": ["measured", "censored", "measured"]})
     runs = F.segments(s, None)
     assert len(runs) == 1 and [p["v"] for p in runs[0]] == [10.0, 20.0]
+
+
+def test_r11_wide_paste_messages_use_original_rows(tmp_path):
+    paste = ("patient\ttest\tunit\t1937-10-01 08:00\t1937-10-02 08:00\t1937-10-03 08:00\n"
+             "SYNTH-8132\tSynthwidget\tmg/L\t5\t6\t7\n"
+             "SYNTH-8132\tCRP\tmg/L\t180\t<5\t90\n"
+             "SYNTH-8132\tLactate\tmmol/L\t2.1\t1.9\t1.4\n")
+    r = _run(tmp_path, paste)
+    assert r.returncode == 0, r.stderr
+    leg = (tmp_path / "gallery" / "legends.md").read_text()
+    assert "test name we didn't recognise (row 2)." in leg            # one original row, not three melted rows
+    assert "below the test's limit (<5). The real value is lower than shown. (row 3)" in leg
+    assert "Flag: no normal range on file for the test on row 4. It's charted without one." in r.stderr
+
+
+def test_r11_wide_paste_blank_line_counts_in_row_numbers(tmp_path):
+    paste = ("patient\ttest\tunit\t1937-10-01 08:00\t1937-10-02 08:00\n"
+             "SYNTH-8133\tCRP\tmg/L\t180\t90\n\n"
+             "SYNTH-8133\tLactate\tmmol/L\t2.1\t>10\n")
+    r = _run(tmp_path, paste)
+    assert r.returncode == 0, r.stderr
+    leg = (tmp_path / "gallery" / "legends.md").read_text()
+    assert "Flag: no normal range on file for the test on row 4. It's charted without one." in r.stderr
+    assert "above the test's limit (>10). The real value is higher than shown. (row 4)" in leg

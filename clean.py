@@ -166,7 +166,7 @@ def swapped_columns(h, body, rows_at=None):
                 and re.fullmatch(r"[<>]?=?\s*" + NUM, uc):
             raise layout_refused(n, h["value"] + 1)
 
-def clean(text, synthetic_only=True, _melted=False):
+def clean(text, synthetic_only=True, _melted=False, _rows_at=None):
     lines = [l for l in text.splitlines() if l.strip()]
     pipe = bool(lines) and all("|" in l for l in lines[:5])
     table = split(text)
@@ -174,13 +174,14 @@ def clean(text, synthetic_only=True, _melted=False):
     h = header_map(head)
     if "t" not in h and "local_label" in h:          # wide paste: times across the columns
         strict_header(head, wide=True)
-        return clean(_melt(head, body, h), synthetic_only, _melted=True)
+        melted, at = _melt(head, body, h, file_lines(text))
+        return clean(melted, synthetic_only, _melted=True, _rows_at=at)   # rows keep the original paste's numbers
     if pipe:
         strict_header(head)
     missing = [c for c in ("local_label", "t", "value") if c not in h]
     if missing:
         raise Refused("NO_REQUIRED_COLUMN", f"Refused: no column recognised for {', '.join(missing)}.")
-    rows_at = None if _melted else file_lines(text)
+    rows_at = _rows_at if _melted else file_lines(text)
     swapped_columns(h, body, rows_at)
     pats = {r[h["patient"]].strip() for r in body if "patient" in h and len(r) > h["patient"] and r[h["patient"]].strip()}
     synthetic = bool(pats) and all(SYNTH.match(p) for p in pats)
@@ -238,17 +239,20 @@ def clean(text, synthetic_only=True, _melted=False):
     return Result(df, rejects, synthetic, identity_verified=len(pats) == 1, order=order,
                   unreadable=unreadable, no_time=no_time)
 
-def _melt(head, body, h):
+def _melt(head, body, h, at=None):
+    """Wide to long. Also returns, per melted line, the original paste's row number (header = row 1)."""
     li = h["local_label"]
     out = ["local_label\tt\tvalue\tunit" + ("\tpatient" if "patient" in h else "")]
+    rows = [at[0] if at else 1]
     ui = h.get("unit")
-    for r in body:
+    for b, r in enumerate(body, 1):
         for j, col in enumerate(head):
             if j in h.values() or j >= len(r) or not r[j].strip():
                 continue
             out.append("\t".join([r[li], col, r[j], r[ui] if ui is not None else ""] +
                                  ([r[h["patient"]]] if "patient" in h else [])))
-    return "\n".join(out)
+            rows.append(at[b] if at and b < len(at) else b + 1)
+    return "\n".join(out), rows
 
 def _order(rows, rejects):
     """Time direction is decided once per paste. Reversed is fine; mixed or interleaved is refused."""
