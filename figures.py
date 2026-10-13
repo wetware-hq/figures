@@ -81,14 +81,10 @@ def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward")
         ax.annotate(f"last measured {last['t']:%d %b %H:%M}" + (f",\n{age:.0f} h before this chart was made" if age > 0 else ""),
                     (last["t"], last["v"]), xytext=(4, 30), textcoords="offset points", ha="right", arrowprops=dict(arrowstyle="-", color="0.4", lw=0.6), fontsize=6.5)
     name = DISPLAY.get(concept, concept)
-    ax.set_ylabel(f"{name} ({unit})"); ax.set_title(f"{name}, one patient")
+    ax.set_ylabel(f"{name} ({unit})")
     ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d %b"))
-    if n_unmapped:
-        fig.text(0.99, 0.0, f"{n_unmapped} results not shown (unmapped)", ha="right", fontsize=6, color="C1")
-    if mode == "test": ax.set_title("")
     if mode == "journal":
         fig.text(0.5, 0.5, "NOT FOR CLINICAL USE", ha="center", va="center", fontsize=18, color="C1", alpha=0.35, rotation=20)
-    fig.text(0, 0, f"Source: {patient}; mapping {mapping_ver}; drawn {DRAWN:%d %b %H:%M}", fontsize=5.5)
     meas = s.filter(pl.col("status") == "measured")["t"].to_list()
     return fig, runs, meas
 
@@ -121,8 +117,8 @@ def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h, row):
     rec = len(absences(s)); inferred = max(len(runs) - 1 - rec, 0)
     e = html.escape
     return (f"<b>{e(synopsis(s, runs, row, unit))}</b><br>"
-            f"<i>For the clinical team:</i> one patient, admission baseline, {rec} gap recorded, {inferred} inferred "
-            f"(&gt;{limit_h:g} h), {n_unmapped} results unmapped, limits {e(row.get('status','?')).lower()}, mapping {mapping_ver}.")
+            f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), one patient, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
+            f"(&gt;{limit_h:g} h), {n_unmapped} results unmapped, limits {e(row.get('status','?')).lower()}, mapping {mapping_ver}, drawn {DRAWN:%d %b %Y %H:%M}.")
 
 def png_b64(fig):
     b = io.BytesIO(); fig.savefig(b, format="png"); plt.close(fig); return base64.b64encode(b.getvalue()).decode()
