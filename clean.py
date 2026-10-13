@@ -38,7 +38,7 @@ MAX_SERIES = 50
 
 TRIPWIRE = ("Refused: this looks like real patient data. It has already been copied into this chat, "
             "so treat it as a privacy incident. Don't paste it again or anywhere else. Report it to your "
-            "local privacy officer through your usual incident process, noting the time and where it was "
+            "organisation's privacy officer through your usual incident process, noting the time and where it was "
             "pasted. For real data, use the ward computer's file or clipboard path.")
 
 @dataclass
