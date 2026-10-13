@@ -1,0 +1,6 @@
+local_label,concept_id,unit
+CRP,crp,mg/L
+C-reactive protein,crp,mg/L
+CRP (ward 7 panel),crp,mg/dL
+Lactate,lactate,mmol/L
+Nurse wellbeing score,,

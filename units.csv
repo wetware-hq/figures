@@ -1,0 +1,4 @@
+from_unit,to_unit,factor
+mg/dL,mg/L,10
+mg/L,mg/L,1
+mmol/L,mmol/L,1

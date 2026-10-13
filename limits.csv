@@ -1,0 +1,3 @@
+concept_id,max_gap_hours,reason
+crp,36,daily blood test; >36 h means a day was missed (BIO Physician starting value)
+lactate,12,twice-daily panel (BIO Physician starting value)
