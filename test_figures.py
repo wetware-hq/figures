@@ -109,7 +109,7 @@ def test_other_separators_via_clean(tmp_path, sep):
         assert r.returncode == 0, r.stderr
     else:
         assert r.returncode == 2
-        assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported. Use commas or tabs."
+        assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported (row 1). Use commas or tabs."
         assert "SYNTH-7735" not in r.stderr and "CRP" not in r.stderr
 
 
@@ -147,7 +147,7 @@ def test_unreadable_row_with_time_becomes_gap_and_counted(tmp_path):
                                       "SYNTH-8001,CRP,1937-10-03 08:00,90,mg/L,final\n")
     assert "Gap: a result was recorded here but couldn&#x27;t be read." in page or \
            "Gap: a result was recorded here but couldn't be read." in page
-    assert "2 rows couldn't be read and aren't shown. 1 are marked as gaps; 1 has no readable time." in leg
+    assert "2 rows couldn't be read and aren't shown: 1 is marked as a gap, 1 has no readable time." in leg
     assert "Synthjunk" not in page + leg + r.stdout + r.stderr and "notatime" not in page + leg
 
 
@@ -169,7 +169,7 @@ def test_not_done_marker_legend(tmp_path):
     page, leg, _ = _gallery(tmp_path, "SYNTH-8004,CRP,1937-10-01 08:00,180,mg/L,final\n"
                                       "SYNTH-8004,CRP,1937-10-02 08:00,,mg/L,not done\n"
                                       "SYNTH-8004,CRP,1937-10-03 08:00,90,mg/L,final\n")
-    assert "○ Not done: no test was done at this time." in leg
+    assert "✕ Not done: no test was done at this time." in leg
 
 
 def test_draw_uses_distinct_markers():
@@ -178,4 +178,76 @@ def test_draw_uses_distinct_markers():
              "SYNTH-8005,CRP,1937-10-03 08:00,,mg/L,missed\nSYNTH-8005,CRP,1937-10-04 08:00,90,mg/L,final\n")
     _, checks = b(paste, "/tmp/g6.html", as_at="1937-10-16T08:00:00")
     markers = {l.get_marker() for l in checks[0][2].axes[0].get_lines()}
-    assert {"v", "o"} <= markers
+    assert {"v", "x"} <= markers
+
+
+# ---------- round 7 ----------
+from figures import count_line
+
+
+def test_count_line_grammar_and_parts():
+    assert count_line(0, 0, 0, []) == ""
+    assert count_line(1, 1, 0, []) == "1 row couldn't be read and isn't shown: 1 is marked as a gap."
+    assert count_line(4, 2, 1, [7]) == ("4 rows couldn't be read and aren't shown: 2 are marked as gaps, "
+                                        "1 has no readable time, 1 has a test name we didn't recognise (row 7).")
+    assert count_line(5, 0, 3, [2, 4]) == ("5 rows couldn't be read and aren't shown: 3 have no readable time, "
+                                           "2 have test names we didn't recognise (rows 2, 4).")
+
+
+def test_unrecognised_test_name_counted_with_row(tmp_path):
+    page, leg, r = _gallery(tmp_path, "SYNTH-8101,CRP,1937-10-01 08:00,180,mg/L,final\n"
+                                      "SYNTH-8101,Synthwidget,1937-10-02 08:00,5,mg/L,final\n"
+                                      "SYNTH-8101,CRP,1937-10-03 08:00,90,mg/L,final\n")
+    assert "1 row couldn't be read and isn't shown: 1 has a test name we didn't recognise (row 2)." in leg
+    assert "Synthwidget" not in page + leg + r.stdout + r.stderr
+
+
+def test_not_done_cross_marker(tmp_path):
+    page, leg, _ = _gallery(tmp_path, "SYNTH-8102,CRP,1937-10-01 08:00,180,mg/L,final\n"
+                                      "SYNTH-8102,CRP,1937-10-02 08:00,,mg/L,not done\n"
+                                      "SYNTH-8102,CRP,1937-10-03 08:00,90,mg/L,final\n")
+    assert "✕ Not done: no test was done at this time." in leg and "○" not in leg
+
+
+def test_test_without_normal_range_charted_and_flagged(tmp_path):
+    page, leg, r = _gallery(tmp_path, "SYNTH-8103,Lactate,1937-10-01 08:00,2.1,mmol/L,final\n"
+                                      "SYNTH-8103,Lactate,1937-10-02 08:00,1.4,mmol/L,final\n")
+    flag = "Flag: no normal range on file for the test on row 1. It's charted without one."
+    assert flag in r.stderr.splitlines()
+    assert "figure_1.png" in page and "Interpretation withheld" in leg
+
+
+def test_pipe_paste_unknown_column_refused_row_and_column(tmp_path):
+    r = _run(tmp_path, "patient|test|time|result|Synthextra\nSYNTH-8104|CRP|1937-10-01 08:00|180|x\n")
+    assert r.returncode == 2
+    assert r.stderr.splitlines()[0] == "Refused: the header row, column 5 doesn't match the expected layout."
+    assert "Synthextra" not in r.stderr and "SYNTH-8104" not in r.stderr
+
+
+def test_pipe_paste_ambiguous_column_refused(tmp_path):
+    r = _run(tmp_path, "patient|test|time|result|value\nSYNTH-8105|CRP|1937-10-01 08:00|180|90\n")
+    assert r.returncode == 2
+    assert r.stderr.splitlines()[0] == "Refused: the header row, column 5 doesn't match the expected layout."
+
+
+def test_wide_paste_non_time_column_refused(tmp_path):
+    r = _run(tmp_path, "patient\ttest\tunit\t1937-10-01 08:00\tSynthcol\nSYNTH-8106\tCRP\tmg/L\t180\t90\n")
+    assert r.returncode == 2
+    assert r.stderr.splitlines()[0] == "Refused: the header row, column 5 doesn't match the expected layout."
+    assert "Synthcol" not in r.stderr
+
+
+@pytest.mark.parametrize("sep", [",", "\t", "|"])
+def test_swapped_time_and_value_columns_refused(tmp_path, sep):
+    rows = [["patient", "test", "time", "result", "unit"],
+            ["SYNTH-8107", "CRP", "180", "1937-10-01 08:00", "mg/L"],
+            ["SYNTH-8107", "CRP", "90", "1937-10-02 08:00", "mg/L"]]
+    r = _run(tmp_path, "\n".join(sep.join(x) for x in rows) + "\n")
+    assert r.returncode == 2
+    assert r.stderr.splitlines()[0] == "Refused: row 1, column 3 doesn't match the expected layout."
+    assert "SYNTH-8107" not in r.stderr and list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
+
+
+def test_semicolon_refusal_names_row(tmp_path):
+    r = _run(tmp_path, "patient;test;time;result\nSYNTH-8108;CRP;1937-10-01 08:00;180\n")
+    assert r.stderr.splitlines()[0] == "Refused: semicolon-separated pastes aren't supported (row 1). Use commas or tabs."

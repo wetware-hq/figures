@@ -31,9 +31,9 @@ COMMENTS = {"haemolysed": "haemolysed", "hemolysed": "haemolysed", "hemolyzed": 
 NUM = r"[-+]?\d+(?:\.\d+)?"
 
 class Refused(SystemExit):
-    """A refusal with a stable machine code; the message is for people."""
-    def __init__(self, code, message):
-        super().__init__(message); self.code, self.message = code, message
+    """A refusal with a stable machine code; the message is for people. row/col point at the cell (no text)."""
+    def __init__(self, code, message, row=None, col=None):
+        super().__init__(message); self.code, self.message, self.row, self.col = code, message, row, col
     def __str__(self):
         return self.message
 
@@ -128,15 +128,49 @@ def parse_value(s):
     return None, "reject", "not a number, a censored value or a known lab comment"
 
 # ---------- cleaning ----------
-def clean(text, synthetic_only=True):
+def known(cell):
+    k = cell.strip().lower()
+    return next((canon for canon, names in ALIASES.items() if k in names), None)
+
+def layout_refused(row, col):
+    where = f"row {row}, column {col}" if row else f"the header row, column {col}"
+    return Refused("LAYOUT", f"Refused: {where} doesn't match the expected layout.", row, col)
+
+def strict_header(head, wide=False):
+    """Pipe and wide pastes: every column must match one known header, unambiguously (wide: or be a time)."""
+    seen = {}
+    for j, cell in enumerate(head, 1):
+        canon = known(cell)
+        if canon is None and not (wide and parse_time(cell)[0] is not None):
+            raise layout_refused(None, j)
+        if canon is not None:
+            if canon in seen:
+                raise layout_refused(None, j)
+            seen[canon] = j
+
+def swapped_columns(h, body):
+    """Catch time and value columns swapped: the time column holds a number while the value column holds a time."""
+    for n, r in enumerate(body, 1):
+        tc = r[h["t"]].strip() if h["t"] < len(r) else ""
+        vc = r[h["value"]].strip() if h["value"] < len(r) else ""
+        if parse_time(tc)[1] and parse_time(vc)[0] is not None:
+            raise layout_refused(n, h["t"] + 1)
+
+def clean(text, synthetic_only=True, _melted=False):
+    lines = [l for l in text.splitlines() if l.strip()]
+    pipe = bool(lines) and all("|" in l for l in lines[:5])
     table = split(text)
     head, body = table[0], table[1:]
     h = header_map(head)
     if "t" not in h and "local_label" in h:          # wide paste: times across the columns
-        return clean(_melt(head, body, h), synthetic_only)
+        strict_header(head, wide=True)
+        return clean(_melt(head, body, h), synthetic_only, _melted=True)
+    if pipe:
+        strict_header(head)
     missing = [c for c in ("local_label", "t", "value") if c not in h]
     if missing:
         raise Refused("NO_REQUIRED_COLUMN", f"Refused: no column recognised for {', '.join(missing)}.")
+    swapped_columns(h, body)
     pats = {r[h["patient"]].strip() for r in body if "patient" in h and len(r) > h["patient"] and r[h["patient"]].strip()}
     synthetic = bool(pats) and all(SYNTH.match(p) for p in pats)
     if synthetic_only and not synthetic:
@@ -181,7 +215,9 @@ def clean(text, synthetic_only=True):
     if len({(r["concept_id"], r["unit"], r["device"], r["specimen"]) for r in rows}) > MAX_SERIES:
         raise Refused("TOO_MANY_SERIES", f"Refused: more than {MAX_SERIES} series in one paste.")
     rows, rejects, order = _order(rows, rejects)
+    DUP_GAPS.clear()
     rows, rejects = _amended(rows, rejects)
+    unreadable += DUP_GAPS
     df = pl.DataFrame(rows, schema={"line": pl.Int64, "local_label": pl.Utf8, "concept_id": pl.Utf8, "t": pl.Datetime,
                                     "value": pl.Float64, "unit": pl.Utf8, "status": pl.Utf8, "bound": pl.Utf8,
                                     "gap_reason": pl.Utf8, "result_status": pl.Utf8, "device": pl.Utf8,
@@ -234,7 +270,10 @@ def _amended(rows, rejects):
             keep.append(final[0])
         else:
             rejects += [(x["line"], "status", "duplicate result, unclear which is final") for x in g]
+            DUP_GAPS.extend((x["concept_id"], x["t"]) for x in g)
     return keep, rejects
+
+DUP_GAPS = []
 
 # ---------- real-data entry ----------
 def from_file(path):

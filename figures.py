@@ -17,24 +17,38 @@ class NoRows(Exception):
         super().__init__("no usable rows"); self.row = row
 
 class SemicolonPaste(Exception):
-    pass
+    def __init__(self, row=None):
+        super().__init__("semicolon"); self.row = row
 
 SEMICOLON_REFUSED = "Refused: semicolon-separated pastes aren't supported. Use commas or tabs."
+SEMICOLON_ROW = "Refused: semicolon-separated pastes aren't supported (row {n}). Use commas or tabs."
 GAP_LEGEND = "Gap: a result was recorded here but couldn't be read."
 BELOW_LEGEND = "▼ below the test's limit (<{x}). The real value is lower than shown."
 ABOVE_LEGEND = "▲ above the test's limit (>{x}). The real value is higher than shown."
-NOT_DONE_LEGEND = "○ Not done: no test was done at this time."
+NOT_DONE_LEGEND = "✕ Not done: no test was done at this time."
+NO_RANGE_FLAG = "Flag: no normal range on file for the test on row {n}. It's charted without one."
 NOT_DONE = {"missed", "not done", "not collected"}
 
-def count_line(n, a, b):
+def count_line(n, a, b, c_rows):
+    """'<N> rows couldn't be read and aren't shown: <a> is/are marked as a gap(s), <b> has/have no readable time,
+    <c> has/have a test name we didn't recognise (row 7).' Each part only if nonzero."""
+    c = len(c_rows)
     if not n: return ""
-    return f"{n} rows couldn't be read and aren't shown. {a} are marked as gaps; {b} {'has' if b == 1 else 'have'} no readable time."
+    parts = []
+    if a: parts.append(f"{a} is marked as a gap" if a == 1 else f"{a} are marked as gaps")
+    if b: parts.append(f"{b} has no readable time" if b == 1 else f"{b} have no readable time")
+    if c:
+        rows = ", ".join(str(r) for r in c_rows)
+        parts.append(f"1 has a test name we didn't recognise (row {rows})" if c == 1 else
+                     f"{c} have test names we didn't recognise (rows {rows})")
+    return f"{n} {'row' if n == 1 else 'rows'} couldn't be read and {'isn' if n == 1 else 'aren'}'t shown: " + ", ".join(parts) + "."
 
 def load(text):
     """Every paste goes through clean.py (the one parser). Returns (rows, unmapped count, patient, as_at)."""
-    first = next((l for l in text.splitlines() if l.strip()), "")
+    nonblank = [l for l in text.splitlines() if l.strip()]
+    first = nonblank[0] if nonblank else ""
     if ";" in first and not any(d in first for d in ("\t", ",", "|")):
-        raise SemicolonPaste()
+        raise SemicolonPaste(next((n for n, l in enumerate(nonblank[1:], 1) if ";" in l), None))
     res = cleaner.clean(text)                       # synthetic only; refuses anything else
     table = cleaner.split(text); h = cleaner.header_map(table[0])
     pats = [r[h["patient"]].strip() for r in table[1:] if "patient" in h and len(r) > h["patient"] and r[h["patient"]].strip()]
@@ -52,10 +66,12 @@ def load(text):
         d = pl.concat([d, gaps], how="diagonal_relaxed").sort(["concept_id", "t"])
     n_unmapped = sum(1 for _, f, _ in res.rejects if f in ("label", "unit"))
     global COUNT_LINE
-    COUNT_LINE = count_line(len(res.rejects), len(res.unreadable), res.no_time)
+    label_rows = sorted(ln - 1 for ln, f, _ in res.rejects if f == "label")
+    COUNT_LINE = count_line(len(res.rejects), len(res.unreadable), res.no_time, label_rows)
     return d, n_unmapped, pats[0], (max(ats) if ats else None)
 
 COUNT_LINE = ""
+NOTICES = []
 
 def segments(s, limit):
     """Runs of measured points; a run ends at a recorded absence, or (cosmetic only) after > limit with no result."""
@@ -118,7 +134,7 @@ def draw(s, concept, unit, patient, n_unmapped, mapping_ver, limit, mode="ward")
     for p in s.filter(pl.col("status") == "unreadable").iter_rows(named=True):
         ax.axvline(p["t"], color="0.5", ls=":", lw=0.8)
     for p in s.filter((pl.col("status") == "absent") & pl.col("result_status").is_in(list(NOT_DONE))).iter_rows(named=True):
-        ax.plot([p["t"]], [0.04], marker="o", mfc="white", color="0.35", ls="none", transform=tr, zorder=4)
+        ax.plot([p["t"]], [0.04], marker="x", color="0.35", ls="none", transform=tr, zorder=4)
     name = DISPLAY.get(concept, concept)
     ax.set_ylabel(f"{name} ({unit})")
     ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d %b"))
@@ -157,7 +173,8 @@ def legend_text(concept, unit, s, runs, n_unmapped, mapping_ver, limit_h, row):
     e = html.escape
     return (f"<b>{e(synopsis(s, runs, row, unit))}</b><br>"
             f"<i>For the clinical team:</i> {e(DISPLAY.get(concept, concept))} ({e(unit)}), single patient not verified, {e(frequency(s))}, source {e(', '.join(sorted(set(s['device'].drop_nulls()))))}, admission baseline, {rec} gap recorded, {inferred} inferred "
-            f"(&gt;{limit_h:g} h), {n_unmapped} results unmapped, limits {e(row.get('status','?')).lower()}, mapping {mapping_ver}, drawn {DRAWN:%d %b %Y %H:%M}.")
+            + (f"(&gt;{limit_h:g} h)" if limit_h else "(no normal range or gap limit on file)")
+            + f", {n_unmapped} results unmapped, limits {e(row.get('status','none on file')).lower()}, mapping {mapping_ver}, drawn {DRAWN:%d %b %Y %H:%M}.")
 
 def marker_legend(s):
     """Fixed legend lines for the markers actually drawn; values only, never pasted text."""
@@ -180,6 +197,7 @@ def frequency(s):
     return f"{len(t)} results, usually every ~{st.median(h):.0f} h"
 
 def build(text, out="gallery.html", mode="ward", as_at=None):
+    NOTICES.clear()
     d, n_unmapped, patient, paste_as_at = load(text)
     if as_at is None: as_at = paste_as_at
     if as_at is not None:
@@ -199,13 +217,19 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
         unit = s["map_unit"].drop_nulls()[0]
         nu = n_unmapped
         row = limits.filter(pl.col("concept_id") == concept); lim = row["gap_limit_h"]
-        if lim.is_empty(): raise SystemExit(f"No signed-off gap limit for {concept} in limits.csv")
-        limit_h = float(lim[0]); from datetime import timedelta
-        fig, runs, meas = draw(s, concept, unit, patient, nu, ver, timedelta(hours=limit_h), mode)
+        from datetime import timedelta
+        if lim.is_empty():                           # no normal range on file: charted without one, never shown as normal
+            limit_h = None
+            first_row = int(s["line"].drop_nulls().min()) - 1 if "line" in s.columns and s["line"].drop_nulls().len() else 1
+            NOTICES.append(NO_RANGE_FLAG.format(n=first_row))
+        else:
+            limit_h = float(lim[0])
+        fig, runs, meas = draw(s, concept, unit, patient, nu, ver, timedelta(hours=limit_h) if limit_h else None, mode)
         checks.append((s, runs, fig))
         n = len(cards) + 1
         rid = secrets.token_hex(2)                   # random per draw; never derived from the data (Class B)
-        withheld = row.row(0, named=True).get("status") != "SIGNED"
+        lim_row = row.row(0, named=True) if row.height else {}
+        withheld = lim_row.get("status") != "SIGNED"
         foot = " · ".join(x for x in ["Synthetic data" if str(patient).startswith("SYNTH") else None, "Single-patient chart, identity not verified",
                                        "Read with the bedside", "Interpretation withheld" if withheld else None,
                                        f"Fig {n}, render {rid}"] if x)   # capped footer: changes need maintainer sign-off
@@ -213,7 +237,9 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
         for ext in ("png", "svg", "pdf"):           # image carries only the capped footer, no legend
             fig.savefig(outdir / f"figure_{n}.{ext}", metadata={"Description" if ext == "png" else "Title": f"render {rid}"})
         plt.close(fig)
-        leg = legend_text(concept, unit, s, runs, nu, ver, limit_h, row.row(0, named=True)) + marker_legend(s)
+        leg = legend_text(concept, unit, s, runs, nu, ver, limit_h, lim_row) + marker_legend(s)
+        if limit_h is None:
+            leg += "<br>" + html.escape(NOTICES[-1])
         legends.append(f"**Figure {n}** (render {rid})**.** " + html.unescape(leg.replace("<br>", " ").replace("<b>", "").replace("</b>", "")
                        .replace("<i>", "*").replace("</i>", "*")))
         cards.append(f"<figure><img src='figure_{n}.png'><figcaption><b>Figure {n}</b> (render {rid}). {leg}</figcaption></figure>")
@@ -277,10 +303,17 @@ def main(argv):
         if not existed and out.exists():
             import shutil; shutil.rmtree(out, ignore_errors=True)
         n = bad_row(text, e)
-        msg = SEMICOLON_REFUSED if isinstance(e, SemicolonPaste) else LAYOUT_ROW.format(n=n) if n else LAYOUT_ANY
+        if isinstance(e, SemicolonPaste):
+            msg = SEMICOLON_ROW.format(n=e.row) if e.row else SEMICOLON_REFUSED
+        elif isinstance(e, cleaner.Refused) and e.code == "LAYOUT":
+            msg = e.message                         # row and column only
+        else:
+            msg = LAYOUT_ROW.format(n=n) if n else LAYOUT_ANY
         sys.stderr.write(msg + "\n")
         sys.stderr.write(diagnostic(e) + "\n")
         return 2
+    for note in NOTICES:
+        sys.stderr.write(note + "\n")
     print(result)
     return 0
 
