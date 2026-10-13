@@ -39,17 +39,24 @@ Hosts on third-party chat (captaincook/Telegram) MUST call `clean` with `text` o
 
 ## Cleaning order
 
-1. Split columns (tab, pipe, comma, then two or more spaces); recognise headers; melt times across columns into rows.
+1. Every paste goes through `clean.py`. Split columns (tab, pipe, comma, then two or more spaces); recognise headers; melt times across columns into rows. Pipe and wide pastes **MUST** be refused unless every column matches one known header unambiguously. Swapped time and value columns **MUST** be refused. Semicolon pastes **MUST** be refused, naming the first row with a semicolon.
 2. Refuse: `NOT_PROVABLY_SYNTHETIC`, `MULTIPLE_PATIENTS`, `NO_REQUIRED_COLUMN`, `EMPTY_INPUT`.
 3. For each row, reject: unmapped or doubly mapped label → ambiguous or impossible date → unreadable value → missing unit → no unit conversion.
 4. Values: comment → `absent` with reason; `<x`/`>x` → `censored` with bound; strip flags; never take a reference range as the result.
 5. Refuse: `TOO_MANY_SERIES` (>50), `INTERLEAVED_TIME`, `MIXED_TIME_ORDER`. A consistently newest-first paste is accepted.
 6. Amended results: keep the one marked final; if none or several, reject all of them.
 
+## Refusals
+
+- A refusal **MUST** give row and column only ("the header row" for header problems), the error type and the code line. It **MUST NOT** show pasted text or a traceback.
+
 ## Figures
 
 - One plot, x and y axes only, no title, house style `default.mplstyle`.
 - Legend: at most two lines, stored separately from the image, describing the test and not the patient. No direction words unless the `limits.csv` row is SIGNED.
+- Markers: ▼ below and ▲ above the test's limit, gap for a result that couldn't be read, ✕ for a test not done. Each has its fixed legend line.
+- A count line above the chart **MUST** name each nonzero part (gap, no readable time, unrecognised test name with rows), match singular or plural, and add up to the total.
+- A test with no normal range on file **MUST** be charted without one and flagged by row; it **MUST NOT** be shown as normal.
 - No interpolation, resampling, downsampling or best-value baseline.
 - The footer **MUST** read "identity not verified" unless an identifier matched every row.
 - The render ID **MUST** be random and **MUST NOT** be derived from data.
@@ -59,7 +66,7 @@ Hosts on third-party chat (captaincook/Telegram) MUST call `clean` with `text` o
 - `pytest -q && python evals/run.py` **MUST** pass before commit.
 - Every new rule **MUST** get a test and a `DECISIONS.md` line naming that test.
 - Changes to footer text, legend wording or chart look **MUST** have maintainer sign-off and a reader-test run.
-- Fixtures **MUST** be synthetic.
+- Fixtures **MUST** be synthetic. Held-out cases **MUST** stay outside the repo, run through the version-checked runner, and be reported as counts.
 
 ## Out of scope
 

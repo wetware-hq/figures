@@ -44,6 +44,29 @@ Agents call `clean`, `rejects` and `render` through `server.py`, a local Model C
 - **Charts** have one plot, two axes and no title, at 107 mm and 300 dpi in colour-blind-safe colours. The legend has at most two lines and is stored separately from the image. Interpretation is withheld until the test's limits are signed off. Every chart says "identity not verified" unless an identifier matched every row.
 - The 1937 synthetic-date rule is not yet enforced by the tool. captaincook may call figures over MCP for synthetic data only, and only once that rule is enforced (see AGENTS.md).
 
+## Pastes and refusals
+
+Every paste goes through `clean.py`. Comma, tab, pipe, space and wide layouts are accepted. Pipe and wide pastes are accepted only when every column matches one known header. Anything else is refused, giving the row and column only. A header problem says "the header row". Swapped time and value columns are caught.
+
+- Semicolons: "Refused: semicolon-separated pastes aren't supported. Use commas or tabs." The refusal gives the first row with a semicolon.
+- No usable rows: "Refused: no rows in the expected layout were found. Nothing was saved."
+- A bad row: "Refused: row 4 doesn't match the expected layout."
+
+A refusal shows the row number, the error type and the code line. It never shows pasted text or a traceback.
+
+## Chart markers
+
+| Marker | Legend |
+|---|---|
+| ▼ | "▼ below the test's limit (<5). The real value is lower than shown." |
+| ▲ | "▲ above the test's limit (>90). The real value is higher than shown." |
+| gap | "Gap: a result was recorded here but couldn't be read." |
+| ✕ | "✕ Not done: no test was done at this time." |
+
+A count line sits above the chart, for example: "3 rows couldn't be read and aren't shown: 1 is marked as a gap, 1 has no readable time, 1 has a test name we didn't recognise (row 7)." Each part appears only when it isn't zero, singular or plural matches the number, and the parts add up to the total.
+
+A test missing from `limits.csv` is charted without a normal range and flagged: "Flag: no normal range on file for the test on row 4. It's charted without one." It is never shown as normal.
+
 ## Quick start
 
 ```bash
@@ -57,7 +80,7 @@ python server.py
 
 ## Evaluation
 
-`evals/run.py` runs regression cases for outcomes, determinism and wording. `evals/READER_TEST.md` is a three-question test with people, run whenever the wording or look changes. Held-out cases are kept outside this repository.
+`evals/run.py` runs regression cases for outcomes, determinism and wording. `evals/READER_TEST.md` is a three-question test with people, run whenever the wording or look changes. Held-out cases use invented people and are kept outside this repository. Results are reported as counts, never rates. Held-out runs go through a version-checked runner outside the repo that logs the commit.
 
 ## Roadmap
 
