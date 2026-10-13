@@ -1,4 +1,4 @@
-"""Tier 1 machine grader. Each case: clean (twice, for determinism), check the expected outcome,
+"""Regression tests (not a held-out evaluation). Each case: clean (twice, for determinism), check the expected outcome,
 and for renders check the wording rules. Exit 1 on any failure. Tier 2 (people) is READER_TEST.md."""
 import json, re, sys
 from pathlib import Path
@@ -40,4 +40,4 @@ if __name__ == "__main__":
     for p in sorted((ROOT / "evals/cases").glob("*.json")):
         f = run_case(p.stem, json.loads(p.read_text()))
         bad += bool(f); print(("PASS " if not f else "FAIL ") + p.stem + ("" if not f else ": " + "; ".join(f)))
-    print(f"{bad} failed"); sys.exit(1 if bad else 0)
+    print(f"regression tests: {bad} failed"); sys.exit(1 if bad else 0)

@@ -20,7 +20,7 @@ Each run needs a reader who has not seen that version. Log results next to the m
 |---|---|---|---|---|---|
 | method-change (run first) | troponin, switch to high-sensitivity test | only results from the current method are plotted; earlier ones are in the legend, not on the line | can't tell across the change (a jump in numbers at the switch is not a rise); within the current method, only if two or more results | the test method changed; the old and new numbers measure on different scales and must not be compared | BIO Physician |
 | unobserved gap | CRP fixture, 4 days (96 h) between results | the shaded span was not measured | can't tell for the shaded span | 4 days passed with no result | n/a |
-| stable plateau | CRP fixture, 7 to 10 Oct | the plateau was measured | can't tell while `limits.csv` is DRAFT; "about the same" only once the CRP RCV is signed off | n/a | BIO Physician |
+| stable plateau | CRP fixture, 7 to 10 Oct | the plateau was measured | pass: "about the same" or "can't tell"; fail: "better" or "worse" | n/a | BIO Physician |
 | isolated last result | CRP fixture, hollow marker | one result after the gap | can't tell what happened in between | how old the last result was when the chart was made | n/a |
 
 ## Log

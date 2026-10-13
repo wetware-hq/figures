@@ -1,5 +1,7 @@
 # figures
 
+> **Not approved for real patient data.** This is a research prototype tested on synthetic data only. Privacy and ethics approval, device-data access, and the biometric-data review are all still pending. "Formal environment" describes how agents interact with it, not clinical readiness. Not a medical device; not for clinical decision-making. Whether it falls under the TGA's software-as-a-medical-device rules has not been assessed.
+
 A data clean room for EMR flowsheets: messy table-like pastes in, clean structured time-series data out, ready for graphing and parsing. Precisely, **zero-retention local processing**. For patients: *nothing leaves and nothing is kept.*
 
 ## Clean
@@ -13,7 +15,7 @@ Output is one long table: concept, time, value, unit, status (measured / censore
 ## Agent environment
 `server.py` is a local MCP tool server (stdio) over `env.py`. An episode is one session; actions are `clean`, `rejects`, `render`; every observation validates against `schemas/*.json`, and every refusal carries a stable code (`env.ERRORS`). Handles live in memory and die with the session. `clean` is deterministic; the render ID is random and excluded. The as-at clock is settable on synthetic data only. Real-data `render` is display-only on the ward machine and returns nothing.
 
-Evaluation: `python evals/run.py` (machine tier, runs in CI) and `evals/READER_TEST.md` (people tier, run when look or wording changes).
+Evaluation: `python evals/run.py` (regression tests, runs in CI; held-out evaluation cases are kept outside the repo) and `evals/READER_TEST.md` (people tier, run when look or wording changes).
 
 ## Render
 Paste a raw flowsheet table in, get a figure gallery out. Figures follow Lancet/NEJM conventions; legends are stored separately, like a paper.
