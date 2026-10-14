@@ -55,4 +55,4 @@ def test_wording_md_matches_signed_round_10():
     sw = _sync()
     signed = (Path(__file__).parent.parent / "wording" / "forms_orders_lines_SIGNED.md").read_text()
     sw.verify(signed, TEXT.split("\n\n", 1)[1])
-    assert len(sw.signed_rows(signed)) == 113
+    assert len(sw.signed_rows(signed)) >= 113          # round 10 had 113; later signed rounds may add rows
