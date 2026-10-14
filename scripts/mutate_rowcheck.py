@@ -32,6 +32,10 @@ MUTANTS = [
     ("figures.py", '    if "event_id" not in (text.splitlines() or [""])[0].split(","):\n        return text, [], []', '    if False:\n        return text, [], []'),
     ("wording.py", 'return LINES[line_id].replace("[event_id]", str(event_id))', 'return LINES[line_id]'),
     ("WORDING.md", "failed a data check", "failed a data chek"),
+    ("WORDING.md", "| PV-DECLINED | You chose not to answer |\n", ""),
+    ("WORDING.md", "| PV-DECLINED |", "| PV-DECLINEDX |"),
+    ("WORDING.md", "| PV-ANS-SELF | You answered |\n", "| PV-ANS-SELF | You answered |\n| PV-ANS-SELF | You answered |\n"),
+    ("test_wording.py", "assert len(ours) == len(signed)", "assert True"),
     ("scripts/sync_wording.py", "    verify(signed, b)  ", "    pass  "),
     ("scripts/sync_wording.py", "if len(got) != len(want) or ", "if "),
     ("scripts/sync_wording.py", " or set(got) != {k for k, _ in want}", ""),
@@ -41,10 +45,19 @@ MUTANTS = [
 
 def main():
     alive = []
+    with tempfile.TemporaryDirectory() as d:                     # baseline: the unmutated copy must be green
+        dst = pathlib.Path(d) / "figures"
+        shutil.copytree(ROOT, dst, ignore=shutil.ignore_patterns(".venv", ".git", "__pycache__", "gallery", "g*.png"))
+        (pathlib.Path(d) / "wording").symlink_to(ROOT.parent / "wording")
+        r = subprocess.run([PY, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_rowcheck.py", "test_wording.py"],
+                           cwd=dst, capture_output=True, text=True)
+        if r.returncode:
+            print("baseline copy is not green; mutation results would be meaningless\n" + r.stdout[-2000:]); return 2
     for i, (f, a, b) in enumerate(MUTANTS):
         with tempfile.TemporaryDirectory() as d:
             dst = pathlib.Path(d) / "figures"
             shutil.copytree(ROOT, dst, ignore=shutil.ignore_patterns(".venv", ".git", "__pycache__", "gallery", "g*.png"))
+            (pathlib.Path(d) / "wording").symlink_to(ROOT.parent / "wording")   # signed file, read-only
             src = (dst / f).read_text()
             if a not in src:
                 print(f"mutant {i}: NOT FOUND {f}: {a!r}"); alive.append(i); continue

@@ -51,8 +51,16 @@ def test_sync_refuses_row_count_or_id_mismatch(cut):
     with pytest.raises(SystemExit):
         sw.verify(SIGNED, bad)
 
-def test_wording_md_matches_signed_round_10():
-    sw = _sync()
-    signed = (Path(__file__).parent.parent / "wording" / "forms_orders_lines_SIGNED.md").read_text()
-    sw.verify(signed, TEXT.split("\n\n", 1)[1])
-    assert len(sw.signed_rows(signed)) >= 113          # round 10 had 113; later signed rounds may add rows
+SIGNED_FILE = Path(__file__).parent.parent / "wording" / "forms_orders_lines_SIGNED.md"
+
+
+def test_wording_md_equals_current_signed_file():
+    """Signed rule: WORDING.md has exactly the signed file's row count and id set, read now; no hard-coded count."""
+    signed = re.findall(r"^\| ([A-Z]{2,4}-[A-Z0-9-]+) \|.*\|\s*$", SIGNED_FILE.read_text(), re.M)
+    body = TEXT.split("\n\n", 1)[1].split("## Pending signature")[0]
+    ours = re.findall(r"^\| ([A-Z]{2,4}-[A-Z0-9-]+) \| [^|]*? \|$", body, re.M)
+    assert signed, "signed file has no rows"
+    assert len(ours) == len(signed), f"WORDING.md has {len(ours)} rows, signed file has {len(signed)}"
+    assert set(ours) == set(signed), sorted(set(ours) ^ set(signed))
+    assert len(set(ours)) == len(ours), "duplicate id in WORDING.md"
+    _sync().verify(SIGNED_FILE.read_text(), TEXT.split("\n\n", 1)[1])
