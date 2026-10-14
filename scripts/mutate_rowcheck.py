@@ -32,6 +32,11 @@ MUTANTS = [
     ("figures.py", '    if "event_id" not in (text.splitlines() or [""])[0].split(","):\n        return text, [], []', '    if False:\n        return text, [], []'),
     ("wording.py", 'return LINES[line_id].replace("[event_id]", str(event_id))', 'return LINES[line_id]'),
     ("WORDING.md", "failed a data check", "failed a data chek"),
+    ("scripts/sync_wording.py", "    verify(signed, b)  ", "    pass  "),
+    ("scripts/sync_wording.py", "if len(got) != len(want) or ", "if "),
+    ("scripts/sync_wording.py", " or set(got) != {k for k, _ in want}", ""),
+    ("scripts/sync_wording.py", " or len(set(got)) != len(got)", ""),
+    ("scripts/sync_wording.py", 'rest.split("|")[-1].strip()', 'rest.split("|")[0].strip()'),
 ]
 
 def main():
