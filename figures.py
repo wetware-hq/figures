@@ -6,6 +6,7 @@ import sys, io, base64, html, subprocess, secrets, re
 from pathlib import Path
 import polars as pl, matplotlib; matplotlib.use("Agg")
 import clean as cleaner
+from wording import msg
 import matplotlib.pyplot as plt, matplotlib.dates
 HERE = Path(__file__).parent
 plt.style.use(HERE / "default.mplstyle")
@@ -264,8 +265,54 @@ def frequency(s):
     if b >= 2 * a: return f"{len(t)} results, every ~{a:.0f} h then every ~{b:.0f} h from {t[k]:%d %b}"
     return f"{len(t)} results, usually every ~{st.median(h):.0f} h"
 
+ISO_T = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?")
+
+class RowsRefused(Exception):
+    """No row survived the row check: no figure; .lines holds one FG-REFUSE-DATA line per row."""
+    def __init__(self, lines):
+        super().__init__("\n".join(lines)); self.lines = lines
+
+def row_fault(row):
+    """Safety check on one paste row (dict of header -> cell): why it fails, or None.
+    Time must be ISO and real; a measured row needs a unit and a numeric value."""
+    t = (row.get("t") or "").strip()
+    if not ISO_T.fullmatch(t):
+        return "time"
+    try:
+        datetime.fromisoformat(t)
+    except ValueError:
+        return "time"
+    if (row.get("status") or "measured").strip() != "measured":
+        return None
+    if not (row.get("unit") or "").strip():
+        return "unit"
+    try:
+        float((row.get("value") or "").strip())
+    except ValueError:
+        return "value"
+    return None
+
+def row_check(text):
+    """Drop each failing row before drawing. Returns (kept paste text, FG-ROW-OMITTED lines, refused ids).
+    The row's id is its event_id cell, else 'row N' (paste line). Raises RowsRefused if no row survives."""
+    import csv
+    if "event_id" not in (text.splitlines() or [""])[0].split(","):
+        return text, [], []                          # pastes without event ids keep the cleaner's own handling
+    lines = text.splitlines()
+    rdr = list(csv.DictReader(io.StringIO(text)))
+    keep, ids = [lines[0]], []
+    for n, (raw, row) in enumerate(zip(lines[1:], rdr), start=2):
+        if row_fault(row):
+            ids.append((row.get("event_id") or "").strip() or f"row {n}")
+        else:
+            keep.append(raw)
+    if len(keep) == 1 and ids:
+        raise RowsRefused([msg("FG-REFUSE-DATA", i) for i in ids])
+    return "\n".join(keep) + "\n", [msg("FG-ROW-OMITTED", i) for i in ids], ids
+
 def build(text, out="gallery.html", mode="ward", as_at=None):
     NOTICES.clear()
+    text, omitted, _ = row_check(text)
     check_dates(text)
     d, n_unmapped, patient, paste_as_at = load(text)
     if as_at is None: as_at = paste_as_at
@@ -315,9 +362,10 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
     page = ("<!doctype html><meta charset=utf-8><title>figures</title><style>body{font:14px sans-serif;max-width:760px;"
             "margin:2em auto}figure{margin:0 0 3em}img{width:100%}figcaption{font-size:13px;line-height:1.4}</style>"
             f"<p>{len(cards)} figures. SYNTHETIC DATA ONLY. Real patient trajectories are shown on screen or printed, never saved as this file.</p>"
-            + (f"<p class=count>{html.escape(COUNT_LINE)}</p>" if COUNT_LINE else "") + "".join(cards))
+            + (f"<p class=count>{html.escape(COUNT_LINE)}</p>" if COUNT_LINE else "") + "".join(cards)
+            + "".join(f"<p class=omitted>{html.escape(x)}</p>" for x in omitted))
     (outdir / "legends.md").write_text("# Figure legends\n\nSYNTHETIC DATA ONLY.\n\n" + (COUNT_LINE + "\n\n" if COUNT_LINE else "")
-                                       + "\n\n".join(legends) + "\n")
+                                       + "\n\n".join(legends) + "\n" + "".join(f"\n{x}\n" for x in omitted))
     (outdir / "index.html").write_text(page); return str(outdir), checks
 
 def verify(outdir):
@@ -366,7 +414,9 @@ def main(argv):
         if not existed and out.exists():
             import shutil; shutil.rmtree(out, ignore_errors=True)
         n = None if isinstance(e, DateRefused) else bad_row(text, e)
-        if isinstance(e, DateRefused):
+        if isinstance(e, RowsRefused):
+            msg = str(e)
+        elif isinstance(e, DateRefused):
             msg = DATE_REFUSED.format(n=e.row)
         elif isinstance(e, SemicolonPaste):
             msg = SEMICOLON_ROW.format(n=e.row) if e.row else SEMICOLON_REFUSED
