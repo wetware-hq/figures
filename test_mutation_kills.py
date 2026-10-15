@@ -133,7 +133,7 @@ def test_unsigned_limits_withhold_interpretation(tmp_path):
 # ---------- unsigned range: value shown, no colour, arrow or flag (FG-INTERP-WITHHELD) ----------
 def test_unsigned_synopsis_uses_signed_line_byte_exact(tmp_path):
     import wording, re
-    sib = Path(__import__("os").environ.get("STACK_SIBLINGS_DIR") or Path(F.__file__).parent.parent)
+    sib = Path(__import__("os").environ.get("WARD_SIBLINGS_DIR") or Path(F.__file__).parent.parent)
     raw = (sib / "wording" / "forms_orders_lines_SIGNED.md").read_bytes().decode("utf-8")
     want = re.search(r"^\| FG-INTERP-WITHHELD \| (.*) \|$", raw, re.M).group(1)
     out, checks = F.build(FIX, str(tmp_path / "g.html"), as_at=AS_AT)

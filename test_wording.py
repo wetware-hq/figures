@@ -51,7 +51,7 @@ def test_sync_refuses_row_count_or_id_mismatch(cut):
     with pytest.raises(SystemExit):
         sw.verify(SIGNED, bad)
 
-SIGNED_FILE = Path(__import__("os").environ.get("STACK_SIBLINGS_DIR") or Path(__file__).parent.parent) / "wording" / "forms_orders_lines_SIGNED.md"
+SIGNED_FILE = Path(__import__("os").environ.get("WARD_SIBLINGS_DIR") or Path(__file__).parent.parent) / "wording" / "forms_orders_lines_SIGNED.md"
 
 
 def test_wording_md_equals_current_signed_file():

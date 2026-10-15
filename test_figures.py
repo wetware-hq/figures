@@ -240,7 +240,7 @@ def test_test_without_normal_range_charted_and_flagged(tmp_path):
     flag = "Flag: no normal range on file for the test on row 2. It's charted without one."
     assert flag in r.stderr.splitlines()
     import os, re
-    raw = (Path(os.environ.get("STACK_SIBLINGS_DIR") or Path(__file__).parent.parent) / "wording" / "forms_orders_lines_SIGNED.md").read_text()
+    raw = (Path(os.environ.get("WARD_SIBLINGS_DIR") or Path(__file__).parent.parent) / "wording" / "forms_orders_lines_SIGNED.md").read_text()
     assert "figure_1.png" in page and re.search(r"^\| FG-INTERP-WITHHELD \| (.*) \|$", raw, re.M).group(1) in leg
 
 
@@ -491,7 +491,7 @@ def test_r11i_cli_timestamp_row_draws_or_refuses(tmp_path, ts, ok):
 
 def _signed_row(lid):
     import os, re
-    raw = (Path(os.environ.get("STACK_SIBLINGS_DIR") or Path(__file__).parent.parent) / "wording" / "forms_orders_lines_SIGNED.md").read_text()
+    raw = (Path(os.environ.get("WARD_SIBLINGS_DIR") or Path(__file__).parent.parent) / "wording" / "forms_orders_lines_SIGNED.md").read_text()
     return re.search(rf"^\| {lid} \| (.*) \|$", raw, re.M).group(1)
 
 
