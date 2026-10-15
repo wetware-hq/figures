@@ -31,3 +31,10 @@ path = "env.py"
 functions = [
     "clean",
 ]
+
+[[modules]]
+path = "clock.py"
+functions = [
+    "__init__",
+    "now",
+]

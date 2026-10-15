@@ -143,8 +143,9 @@ def absences(s, not_done=True):
     return spans
 
 from datetime import datetime
-DRAWN = datetime.now().replace(second=0, microsecond=0)
-ANCHOR = {"t": DRAWN, "label": "this chart was made"}  # replaced by data as-at when supplied
+import clock
+DRAWN = None                                        # set from clock.now() at the start of every build
+ANCHOR = {"t": None, "label": "this chart was made"}  # replaced by data as-at when supplied
 
 def between(a, b):
     """The one string for elapsed time between two results; used on the chart and in the legend."""
@@ -311,6 +312,8 @@ def row_check(text):
     return "\n".join(keep) + "\n", [msg("FG-ROW-OMITTED", i) for i in ids], ids
 
 def build(text, out="gallery.html", mode="ward", as_at=None):
+    global DRAWN
+    DRAWN = clock.now().replace(second=0, microsecond=0)   # the approved clock; unset refuses before anything is saved
     NOTICES.clear()
     text, omitted, _ = row_check(text)
     check_dates(text)

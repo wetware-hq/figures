@@ -1,6 +1,7 @@
 """Formal agent environment over clean.py + figures.py.
 Episode = one session. Actions: clean, rejects, render, close. Every observation validates against schemas/.
 Zero retention: handles live in memory for the session only. Clock: settable on synthetic data only."""
+import clock
 import json, secrets
 from datetime import datetime
 from pathlib import Path
@@ -32,7 +33,7 @@ class Env:
         if as_at is not None and not res.synthetic:
             return _err("CLOCK_NOT_SETTABLE", "Refused: the as-at time comes from this machine's clock on real data.")
         h = secrets.token_hex(4)
-        self._h[h] = (res, as_at or datetime.now().replace(microsecond=0).isoformat())
+        self._h[h] = (res, as_at or clock.now().replace(microsecond=0).isoformat())
         return _ok("clean", {"ok": True, "handle": h, **res.summary()})
 
     def rejects(self, handle):
