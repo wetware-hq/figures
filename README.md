@@ -94,3 +94,11 @@ python server.py
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+## Live-model status
+
+S05 and S07 were checked with a scripted stand-in, not a real AI model. The scripted runs show the checks catch the mistakes those two scenarios are for. They don't show how a real model behaves. Those tests are still to come.
+
+## Status
+
+Not for use with real patients.
