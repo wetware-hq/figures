@@ -49,7 +49,7 @@ Agents call `clean`, `rejects` and `render` through `server.py`, a local Model C
 Every paste goes through `clean.py`. Comma, tab, pipe, space and wide layouts are accepted. Pipe and wide pastes are accepted only when every column matches one known header. Anything else is refused, giving the row and column only. Row numbers are spreadsheet style: the file's own line numbers, with the header as row 1, so the first data row is row 2 (blank lines still count). Wide pastes (times across the columns) give the row of the original paste, never of the reshaped table. A header problem says "row 1". Swapped time and value columns are caught.
 
 - Semicolons: "Refused: semicolon-separated pastes aren't supported. Use commas or tabs." The refusal gives the first row with a semicolon.
-- No usable rows: "Refused: no rows in the expected layout were found. Nothing was saved."
+- No usable rows: the signed line FG-LAYOUT-REFUSED (text in WORDING.md).
 - A bad row: "Refused: row 4 doesn't match the expected layout."
 
 A refusal shows the row number, the error type and the code line. It never shows pasted text or a traceback.

@@ -84,7 +84,7 @@ def test_guard_bad_rows_mrn_header_no_echo(tmp_path):
     assert r.returncode == 2 and r.stdout == ""
     assert len(r.stderr.strip().splitlines()) == 1          # no internal diagnostics
     first = r.stderr.strip()
-    assert first == "Refused: no rows in the expected layout were found. Nothing was saved."
+    assert first == _SIGNED_LAYOUT
     assert not re.search(DIAG, r.stderr) and "Diagnostic" not in r.stderr
     for tok in TOKS:
         assert tok not in r.stdout + r.stderr, tok
@@ -117,14 +117,14 @@ def test_other_separators_via_clean(tmp_path, sep):
 def test_guard_short_row(tmp_path):
     paste = ("MRN,local_label,t,value,unit\nSYNTH-7732,CRP,notatime,5,mg/L\nSYNTH-7732,CRP\n")
     r = _run(tmp_path, paste)
-    assert r.returncode != 0 and r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
+    assert r.returncode != 0 and r.stderr.splitlines()[0] == _SIGNED_LAYOUT
     assert "SYNTH-7732" not in r.stderr and "MRN" not in r.stderr
 
 
 def test_guard_no_row_known(tmp_path):
     r = _run(tmp_path, "MRN SYNTH-7733 only one line\n")
     assert r.returncode != 0 and r.stdout == ""
-    assert r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
+    assert r.stderr.splitlines()[0] == _SIGNED_LAYOUT
     assert r.stderr.splitlines()[1:] == []
     assert "SYNTH-7733" not in r.stderr and "MRN" not in r.stderr
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
@@ -310,7 +310,7 @@ def test_r10_no_matching_rows_refusal_wording(tmp_path):
     paste = HEAD6 + "SYNTH-8122,Synthwidget,1937-10-02 08:00,5,mg/L,final\nSYNTH-8122,Synthgadget,1937-10-03 08:00,6,mg/L,final\n"
     r = _run(tmp_path, paste)
     assert r.returncode == 2 and r.stdout == ""
-    assert r.stderr.splitlines()[0] == "Refused: no rows in the expected layout were found. Nothing was saved."
+    assert r.stderr.splitlines()[0] == _SIGNED_LAYOUT
     assert list(tmp_path.iterdir()) == [tmp_path / "paste.csv"]
 
 
@@ -487,3 +487,12 @@ def test_r11i_cli_timestamp_row_draws_or_refuses(tmp_path, ts, ok):
         assert r.returncode == 2
         assert r.stderr.strip().splitlines() == [DATE_LINES[0].format(n=3), DATE_LINES[1]]
         assert not (tmp_path / "gallery").exists() and not (tmp_path / "gallery.html").exists()
+
+
+def _signed_row(lid):
+    import os, re
+    raw = (Path(os.environ.get("STACK_SIBLINGS_DIR") or Path(__file__).parent.parent) / "wording" / "forms_orders_lines_SIGNED.md").read_text()
+    return re.search(rf"^\| {lid} \| (.*) \|$", raw, re.M).group(1)
+
+
+_SIGNED_LAYOUT = _signed_row("FG-LAYOUT-REFUSED")

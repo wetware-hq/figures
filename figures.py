@@ -404,7 +404,7 @@ def verify(outdir):
     return True
 
 LAYOUT_ROW = "Refused: row {n} doesn't match the expected layout."
-LAYOUT_ANY = "Refused: no rows in the expected layout were found. Nothing was saved."
+LAYOUT_ANY = msg("FG-LAYOUT-REFUSED", "")   # signed row; text only in WORDING.md
 
 def bad_row(text, e=None):
     """First row (spreadsheet style: the file's own line number, header = row 1) that breaks the layout, using clean.py's reader; None if unknown.

@@ -8,10 +8,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 ROOT = HERE.parent if HERE.name == "tests" else HERE
 # Tests whose wording has no signed row yet: test id -> the exact line. Each entry must stay absent from every signing
 # file; once the line is signed the entry fails, so the test is repointed to the signed source.
-KNOWN_UNSIGNED = {
-    "test_figures.py::test_r10_no_matching_rows_refusal_wording":
-        "Refused: no rows in the expected layout were found. Nothing was saved.",
-}
+KNOWN_UNSIGNED = {}
 SIGNED_NAME = re.compile(r"signing_files|_SIGNED\b|_SIGNED\.md|SIGNED_FILE|SIGNED\b")
 
 
