@@ -90,8 +90,8 @@ def load(text):
         raise SemicolonPaste(next((n for n in cleaner.file_lines(text)[1:] if ";" in all_lines[n - 1]), None))
     res = cleaner.clean(text)                       # synthetic only; refuses anything else
     table = cleaner.split(text); h = cleaner.header_map(table[0])
-    pats = [r[h["patient"]].strip() for r in table[1:] if "patient" in h and len(r) > h["patient"] and r[h["patient"]].strip()]
-    ats = [r[h["as_at"]].strip() for r in table[1:] if "as_at" in h and len(r) > h["as_at"] and r[h["as_at"]].strip()]
+    col = lambda k: [c.strip() for r in table[1:] for c in r[h[k]:h[k] + 1] if c.strip()] if k in h else []
+    pats, ats = col("patient"), col("as_at")     # clean() has already refused a paste without one synthetic patient
     if res.rows.height == 0:
         raise NoRows(min((ln for ln, _, _ in res.rejects), default=1) if res.rejects else None)
     d = res.rows.with_columns(pl.lit(pats[0]).alias("patient"), pl.col("unit").alias("map_unit"),
@@ -215,8 +215,8 @@ def synopsis(s, runs, row, unit):
     v0, vl, t0, tl = pts[0]["v"], pts[-1]["v"], pts[0]["t"], pts[-1]["t"]
     nums = f"{v0:g} to {vl:g} {unit} ({t0:%d %b} to {tl:%d %b})"
     if row.get("status") != "SIGNED":
-        return (f"{hand} {v0:g} {unit} on {t0:%d %b}; latest {vl:g} {unit} on {tl:%d %b}, {between(pts[-2]['t'], tl)}."
-                " Interpretation withheld until test limits are signed off.")
+        return (f"{hand} {v0:g} {unit} on {t0:%d %b}; latest {vl:g} {unit} on {tl:%d %b}, {between(pts[-2]['t'], tl)}. "
+                + msg("FG-INTERP-WITHHELD", ""))
     # signed path: trend words only when the signed threshold allows them
     hl = row.get("expected_half_life_h"); fall = row.get("rcv_fall_pct"); rise = row.get("rcv_rise_pct")
     ch = (vl - v0) / v0 * 100 if v0 else 0
@@ -329,18 +329,20 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
     limits = pl.read_csv(HERE / "limits.csv", comment_prefix="#")
     outdir = Path(out).with_suffix(""); outdir.mkdir(exist_ok=True)
     cards, checks, legends = [], [], []
-    for (patient, concept), s in d.group_by(["patient", "concept_id"], maintain_order=True):
+    for (patient, concept), s in sorted(d.partition_by(["patient", "concept_id"], as_dict=True).items()):
         unit = s["map_unit"].drop_nulls()[0]
         nu = n_unmapped
         row = limits.filter(pl.col("concept_id") == concept); lim = row["gap_limit_h"]
         from datetime import timedelta
         if lim.is_empty():                           # no normal range on file: charted without one, never shown as normal
             limit_h = None
-            first_row = int(s["line"].drop_nulls().min()) if "line" in s.columns and s["line"].drop_nulls().len() else 1
+            first_row = int(s["line"].drop_nulls().min() or 1)
             NOTICES.append(NO_RANGE_FLAG.format(n=first_row))
         else:
             limit_h = float(lim[0])
         fig, runs, meas = draw(s, concept, unit, patient, nu, ver, timedelta(hours=limit_h) if limit_h else None, mode)
+        if (row.row(0, named=True) if row.height else {}).get("status") != "SIGNED" and interp_marks(fig, s):
+            raise SystemExit(f"REFUSED: a colour, arrow or flag on {concept}, whose normal range isn't signed off.")
         checks.append((s, runs, fig))
         n = len(cards) + 1
         rid = secrets.token_hex(2)                   # random per draw; never derived from the data (Class B)
@@ -367,6 +369,29 @@ def build(text, out="gallery.html", mode="ward", as_at=None):
     (outdir / "legends.md").write_text("# Figure legends\n\nSYNTHETIC DATA ONLY.\n\n" + (COUNT_LINE + "\n\n" if COUNT_LINE else "")
                                        + "\n\n".join(legends) + "\n" + "".join(f"\n{x}\n" for x in omitted))
     (outdir / "index.html").write_text(page); return str(outdir), checks
+
+def interp_marks(fig, s):
+    """Interpretive marks on measured values: any plotted point at a measured (time, value) that is not the plain
+    series colour and dot, or any arrow annotation pointing at one. Used to refuse marks when the range is unsigned."""
+    from matplotlib.colors import to_hex
+    from matplotlib.text import Annotation
+    meas = {(round(float(matplotlib.dates.date2num(t)), 6), float(v))
+            for t, v in s.filter(pl.col("status") == "measured").select("t", "v").iter_rows()}
+    plain, out = to_hex("C0"), []
+    for ax in fig.axes:
+        for ln in ax.lines:
+            xs = [x if isinstance(x, (int, float)) else matplotlib.dates.date2num(x) for x in ln.get_xdata()]
+            hit = [(x, y) for x, y in zip(xs, ln.get_ydata()) if (round(float(x), 6), float(y)) in meas]
+            if hit and (to_hex(ln.get_color()) != plain or ln.get_marker() not in ("o", "None", None, "")):
+                out.append(("marker", hit[0]))
+        for t in ax.texts:
+            if isinstance(t, Annotation) and t.arrow_patch is not None and getattr(t, "arrowprops", {}).get("arrowstyle", "->") != "-":
+                x, y = t.xy
+                x = matplotlib.dates.date2num(x) if not isinstance(x, (int, float)) else x
+                if (round(float(x), 6), float(y)) in meas:
+                    out.append(("arrow", (x, y)))
+    return out
+
 
 def verify(outdir):
     """Refuse a gallery whose legend entries and images don't share a render ID."""

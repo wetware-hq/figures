@@ -1,0 +1,33 @@
+# Every figures function that refuses, drops a row or writes a signed line (FG-...).
+# test_safety_functions.py fails the build if one is missing (AST scan).
+
+[[modules]]
+path = "figures.py"
+functions = [
+    "build",
+    "check_dates",
+    "interp_marks",
+    "load",
+    "row_check",
+    "synopsis",
+    "verify",
+]
+
+[[modules]]
+path = "clean.py"
+functions = [
+    "_order",
+    "clean",
+    "from_clipboard",
+    "layout_refused",
+    "split",
+    "strict_header",
+    "swapped_columns",
+    "to_parquet",
+]
+
+[[modules]]
+path = "env.py"
+functions = [
+    "clean",
+]

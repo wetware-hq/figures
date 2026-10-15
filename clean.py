@@ -158,7 +158,7 @@ def swapped_columns(h, body, rows_at=None):
     the value column), or value and unit swapped (no digit in the value column, a plain number in the unit column)."""
     cell = lambda r, k: r[h[k]].strip() if k in h and h[k] < len(r) else ""
     for k, r in enumerate(body, 2):
-        n = rows_at[k - 1] if rows_at and k - 1 < len(rows_at) else k
+        n = rows_at[k - 1] if rows_at else k
         tc, vc, uc = cell(r, "t"), cell(r, "value"), cell(r, "unit")
         if parse_time(tc)[1] and parse_time(vc)[0] is not None:
             raise layout_refused(n, h["t"] + 1)
@@ -195,7 +195,7 @@ def clean(text, synthetic_only=True, _melted=False, _rows_at=None):
     multi = set(lab2.filter(pl.col("len") > 1)["local_label"])
     lmap = {r["local_label"]: r for r in MAP.to_dicts()}
     for k, r in enumerate(body, start=2):
-        i = rows_at[k - 1] if rows_at and k - 1 < len(rows_at) else k
+        i = rows_at[k - 1] if rows_at else k
         label = get(r, "local_label")
         if label in multi:
             rejects.append((i, "label", "matches more than one concept")); continue

@@ -239,7 +239,9 @@ def test_test_without_normal_range_charted_and_flagged(tmp_path):
                                       "SYNTH-8103,Lactate,1937-10-02 08:00,1.4,mmol/L,final\n")
     flag = "Flag: no normal range on file for the test on row 2. It's charted without one."
     assert flag in r.stderr.splitlines()
-    assert "figure_1.png" in page and "Interpretation withheld" in leg
+    import os, re
+    raw = (Path(os.environ.get("STACK_SIBLINGS_DIR") or Path(__file__).parent.parent) / "wording" / "forms_orders_lines_SIGNED.md").read_text()
+    assert "figure_1.png" in page and re.search(r"^\| FG-INTERP-WITHHELD \| (.*) \|$", raw, re.M).group(1) in leg
 
 
 def test_pipe_paste_unknown_column_refused_row_and_column(tmp_path):
