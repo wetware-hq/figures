@@ -43,7 +43,7 @@ error                              → {ok: false, error, message}
 ```
 
 Agents **MUST** branch on `error` codes (`env.ERRORS`), not on message text. Handles are valid for one session.
-Hosts on third-party chat (captaincook/Telegram) MUST call `clean` with `text` only, MUST NOT use `file`/`clipboard`, and MUST NOT store handles, counts or render files in any patient record.
+Hosts on third-party chat **MUST** call `clean` with `text` only, **MUST NOT** use `file`/`clipboard`, and **MUST NOT** store handles, counts or render files in any patient record.
 
 ### Cleaning order
 
