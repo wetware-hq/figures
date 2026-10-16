@@ -1,7 +1,7 @@
 ---
 schema: wetware.agent.v1
 resource: figures
-version: 0.2.0
+version: 0.3.0
 capabilities: [clean, rejects, render]
 inputs:
   paste: {type: text|file|clipboard, constraint: "text = synthetic only"}
@@ -11,6 +11,12 @@ outputs:
   gallery: {type: directory, schema: schemas/render.json, constraint: synthetic only}
 server: {transport: mcp-stdio, entrypoint: server.py}
 hosts: [{repo: wetware-hq/captaincook, command: /figures, data: synthetic only, status: pending 1937 check}]
+interface:
+  agent: [clean, rejects, render]
+  errors: env.ERRORS
+settings: [FIGURES_CLOCK, FIGURES_SCENARIO_CLOCK, WARD_SIBLINGS_DIR, MUTATE_WORKERS]
+runtime: {venv: requirements.txt, ward_interpreter: WARD_FIGURES_PYTHON}
+used_by: {repo: wetware-hq/ward, layer: endware}
 ---
 
 # Agent contract
@@ -25,7 +31,9 @@ Normative rules for agents that operate or modify figures. Wording uses RFC 2119
 4. Real data **MUST NOT** be written to disk. `as_at` **MUST NOT** be set on real data.
 5. The patient identifier is used only for row-to-row comparison. It **MUST NOT** label a series or appear in any output.
 
-## Interface
+## Operating the environment
+
+### Interface
 
 ```
 clean(text|file|clipboard, as_at?) → {ok, handle, synthetic, identity, series[], rejects{}, rows?}
@@ -37,7 +45,7 @@ error                              → {ok: false, error, message}
 Agents **MUST** branch on `error` codes (`env.ERRORS`), not on message text. Handles are valid for one session.
 Hosts on third-party chat (captaincook/Telegram) MUST call `clean` with `text` only, MUST NOT use `file`/`clipboard`, and MUST NOT store handles, counts or render files in any patient record.
 
-## Cleaning order
+### Cleaning order
 
 1. Every paste goes through `clean.py`. Split columns (tab, pipe, comma, then two or more spaces); recognise headers; melt times across columns into rows. Pipe and wide pastes **MUST** be refused unless every column matches one known header unambiguously. Swapped time and value columns **MUST** be refused. Semicolon pastes **MUST** be refused, naming the first row with a semicolon.
 2. Refuse: `NOT_PROVABLY_SYNTHETIC`, `MULTIPLE_PATIENTS`, `NO_REQUIRED_COLUMN`, `EMPTY_INPUT`.
@@ -46,11 +54,11 @@ Hosts on third-party chat (captaincook/Telegram) MUST call `clean` with `text` o
 5. Refuse: `TOO_MANY_SERIES` (>50), `INTERLEAVED_TIME`, `MIXED_TIME_ORDER`. A consistently newest-first paste is accepted.
 6. Amended results: keep the one marked final; if none or several, reject all of them.
 
-## Refusals
+### Refusals
 
 - A refusal **MUST** give row and column only ("the header row" for header problems), the error type and the code line. It **MUST NOT** show pasted text or a traceback.
 
-## Figures
+### Figures
 
 - One plot, x and y axes only, no title, house style `default.mplstyle`.
 - Legend: at most two lines, stored separately from the image, describing the test and not the patient. No direction words unless the `limits.csv` row is SIGNED.
@@ -70,6 +78,7 @@ Hosts on third-party chat (captaincook/Telegram) MUST call `clean` with `text` o
 
 ## Out of scope
 
+- Signing legend, footer or limits wording
 - Storage, warehouses, query endpoints, or combining pastes or patients
 - Hosted services or vendor APIs
 - Real-data file output and clinical advice
