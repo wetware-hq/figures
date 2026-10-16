@@ -10,7 +10,6 @@ outputs:
   rejects: {type: list, schema: schemas/rejects.json}
   gallery: {type: directory, schema: schemas/render.json, constraint: synthetic only}
 server: {transport: mcp-stdio, entrypoint: server.py}
-hosts: [{repo: wetware-hq/captaincook, command: /figures, data: synthetic only, status: pending 1937 check}]
 interface:
   agent: [clean, rejects, render]
   errors: env.ERRORS

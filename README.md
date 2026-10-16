@@ -48,7 +48,7 @@ Agents call `clean`, `rejects` and `render` through `server.py`, a local Model C
 - **Text input is synthetic only** (`SYNTH-` identifiers). Any other text paste is refused with an instruction to report a privacy incident. This is a tripwire, not a control: it proves the label, not the data.
 - **Real data** enters only from a local file or the clipboard. It is never written to disk, and its "as at" time comes from the machine's own clock.
 - **Charts** have one plot, two axes and no title, at 107 mm and 300 dpi in colour-blind-safe colours. The legend has at most two lines and is stored separately from the image. Interpretation is withheld until the test's limits are signed off. Every chart says "identity not verified" unless an identifier matched every row.
-- The 1937 synthetic-date rule is not yet enforced by the tool. captaincook may call figures over MCP for synthetic data only, and only once that rule is enforced (see AGENTS.md).
+- The 1937 synthetic-date rule is not yet enforced by the tool. Host integrations that paste synthetic text **MUST** wait until that rule is enforced (see AGENTS.md).
 
 ## Pastes and refusals
 
