@@ -22,6 +22,12 @@ Every result ends up in one of three states:
 
 Rows that cannot be read safely are rejected, and the reason is listed without repeating the row's contents. Pastes that suggest two patients or two stitched-together charts are refused outright.
 
+---
+
+## Engineering specification
+
+Settings read: `FIGURES_CLOCK`, `FIGURES_SCENARIO_CLOCK` (fixed clocks for tests), `WARD_SIBLINGS_DIR` (signed wording), `MUTATE_WORKERS`. Runs in its own venv (`requirements.txt`); the ward reaches it through that interpreter (`WARD_FIGURES_PYTHON`).
+
 ## Contract
 
 | Slot | Direction | Type | Schema |
