@@ -112,3 +112,15 @@ S05 and S07 were checked with a scripted stand-in, not a real AI model. The scri
 ## Status
 
 Not for use with real patients.
+
+## References
+
+figures rests on one published result and nothing more; everything else it does is engineering on synthetic data. The entry is tied to the one claim that rests on it and carries a DOI and PMID so it can be checked. A regulatory or style guideline is not evidence and licenses no decision here.
+
+### Peer-reviewed
+
+- **Wong, B.** Points of view: Color blindness. *Nature Methods* 8, 441 (2011). DOI: 10.1038/nmeth.1618 (PMID: 21774112). — The chart rule "colour-blind-safe colours": the palette is chosen to stay distinguishable under the common red–green colour-vision deficiencies this describes.
+
+### Unsupported claims (no peer-reviewed support)
+
+- Everything else figures claims — that its cleaning keeps only what it can read with certainty, that censored values are drawn as marked limits and left out of trends, that a two-patient paste is refused outright — is shown by its own rules, evals and mutation gate, not by peer-reviewed research. The 107 mm, 300 dpi figure sizing follows publisher style conventions, which are a convention and not evidence. A green is the tool behaving as written on synthetic data, nothing about real care.
