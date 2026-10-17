@@ -86,6 +86,10 @@ python figures.py fixtures/fixture_export.csv --as-at=1937-10-16T08:00:00
 python server.py
 ```
 
+## Bar
+
+The venv `pytest` green, with `evals/run.py` and `scripts/rulecheck.py`, is figures' bar; `scripts/mutate.py` is the mutation gate. What a green covers and what it does not — so a green here is not read as the same assurance as a green elsewhere, and so the `DECISIONS.md` rules marked "Test: none" are not mistaken for enforced — is [BAR.md](BAR.md).
+
 ## Evaluation
 
 `evals/run.py` runs regression cases for outcomes, determinism and wording. `evals/READER_TEST.md` is a three-question test with people, run whenever the wording or look changes. Held-out cases use invented people and are kept outside this repository. Results are reported as counts, never rates. Held-out runs go through a version-checked runner outside the repo that logs the commit.
