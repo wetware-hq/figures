@@ -28,9 +28,7 @@ python scripts/mutate.py        # mutation gate over safety_functions.toml
 - **Safety functions** — mutation-killed (`test_mutation_kills`, `test_safety_functions`, `test_safety_stamp`).
 - **Jurisdiction scan** — `test_jurisdiction_scan.py` fails on any planted term in each category below, each on its own id.
 
-Scan categories the green covers (the check-id registry this bar guards):
-
-`J-COUNTRY`, `J-STATE`, `J-CITY`, `J-AGENCY`, `J-POLICY`, `J-EMERG`, `J-PROGRAM`, `J-GP`, `J-CURRENCY`, `J-JOBTITLE`, `SCAN-PROMPT-LEAK/names`, `SCAN-PROMPT-LEAK/persona`, `SCAN-PROMPT-LEAK/paths`, `SCAN-PROMPT-LEAK/tokens`, `SCAN-PROMPT-LEAK/people`, `SCAN-PROMPT-LEAK/email`, `SCAN-PROMPT-LEAK/directive`.
+The scan's category ids are not copied here: duplicating the registry would drift from it, and can trip the scan on an id that itself contains a scanned term. The authoritative list is the `[categories]` table in `jurisdiction_scan.toml`, and `test_bar.py` checks this bar points to it.
 
 ## What a green does NOT cover
 
@@ -43,4 +41,4 @@ Scan categories the green covers (the check-id registry this bar guards):
 
 ## Name guard
 
-`test_bar.py` fails if any jurisdiction-scan category in `jurisdiction_scan.toml` is not listed in this file, so a scan check cannot run under a name this bar does not name.
+`test_bar.py` checks this bar names `jurisdiction_scan.toml` as the authoritative scan registry, rather than copying the category ids (a copy would drift from the registry and can trip the scan itself). The registry's own test (`test_each_category_planted_term_fails_on_its_own_id`) holds every category to one declared, planted id, so no scan check runs under a name the registry does not name.
